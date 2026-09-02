@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-base-950: #0a0e14;
+  --color-base-900: #0d1117;
+  --color-base-850: #131922;
+  --color-base-800: #1a2230;
+  --color-base-700: #242e3e;
+  --color-base-600: #364152;
+  --color-base-500: #4b5668;
+  --color-base-400: #6b7689;
+  --color-base-300: #97a0b0;
+  --color-base-200: #c4cad4;
+  --color-base-100: #e3e6eb;
+  --color-base-50: #f4f5f7;
+
+  --color-bull-500: #16c784;
+  --color-bull-600: #0faa6f;
+  --color-bull-700: #0c8a5a;
+  --color-bear-500: #ea3943;
+  --color-bear-600: #d12e37;
+  --color-bear-700: #b3262d;
+
+  --color-accent-400: #f5a623;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+
+  --color-info-400: #38bdf8;
+  --color-info-500: #0ea5e9;
+  --color-info-600: #0284c7;
+
+  --color-warn-500: #f59e0b;
+  --color-err-500: #ef4444;
+  --color-ok-500: #22c55e;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-base-950);
+  color: var(--color-base-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-base-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-base-700);
+  border-radius: 6px;
+  border: 2px solid var(--color-base-900);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-base-600);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Print styles for Tomorrow's Plan */
+@media print {
+  body {
+    background: white !important;
+    color: #1a1a1a !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-plan {
+    border: 1px solid #ddd !important;
+    background: white !important;
+    color: #1a1a1a !important;
+    padding: 24px !important;
+    box-shadow: none !important;
+  }
+  .print-plan * {
+    color: #1a1a1a !important;
+    border-color: #ccc !important;
+    background: transparent !important;
+  }
+  .print-plan h1, .print-plan h2, .print-plan h3, .print-plan h4 {
+    color: #000 !important;
+  }
+}
