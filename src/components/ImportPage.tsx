@@ -53,7 +53,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "tradovate",
     name: "Tradovate",
-    description: "Connect your Tradovate account and sync trades automatically via API.",
+    description: "Sync trades from your live Tradovate account via API. Requires API access (not available on demo accounts).",
     icon: <Zap size={22} />,
     color: "from-blue-500 to-cyan-500",
     accent: "text-blue-400",
@@ -125,7 +125,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
   // Tradovate credentials state
   const [tvUser, setTvUser] = useState("");
   const [tvPass, setTvPass] = useState("");
-  const [tvMode, setTvMode] = useState<"demo" | "live">("demo");
+  const [tvMode] = useState<"demo" | "live">("live");
   const [tvCid, setTvCid] = useState("");
   const [tvSec, setTvSec] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -733,40 +733,19 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                   Connect your Tradovate account
                 </h3>
                 <p className="mb-4 text-xs text-base-400">
-                  Enter your Tradovate credentials to automatically sync your trade history.
+                  Enter your live Tradovate account credentials and API keys to automatically sync your trade history.
                   Your credentials are used only for this sync and are not stored.
                 </p>
 
-                <div className="space-y-4">
-                  {/* Mode toggle */}
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-base-300">
-                      Account type
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setTvMode("demo")}
-                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                          tvMode === "demo"
-                            ? "border-info-500 bg-info-500/15 text-info-400"
-                            : "border-base-600 text-base-400 hover:border-base-500"
-                        }`}
-                      >
-                        Demo Account
-                      </button>
-                      <button
-                        onClick={() => setTvMode("live")}
-                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                          tvMode === "live"
-                            ? "border-info-500 bg-info-500/15 text-info-400"
-                            : "border-base-600 text-base-400 hover:border-base-500"
-                        }`}
-                      >
-                        Live Account
-                      </button>
-                    </div>
-                  </div>
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
+                  <Info size={14} className="mt-0.5 flex-shrink-0 text-warn-500" />
+                  <p className="text-xs text-warn-500">
+                    API access requires a funded live Tradovate account. Demo accounts do not support API sync —
+                    use CSV import or sample data instead.
+                  </p>
+                </div>
 
+                <div className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-base-300">
@@ -796,7 +775,6 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                     </div>
                   </div>
 
-                  {/* Optional fields */}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-base-300">
@@ -867,7 +845,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                   How it works
                 </h4>
                 <ul className="space-y-1.5 text-xs text-base-300">
-                  <li>1. We securely authenticate with Tradovate using your credentials.</li>
+                  <li>1. We securely authenticate with Tradovate using your live account credentials and API keys.</li>
                   <li>2. Your complete fill history is downloaded and paired into round-trip trades.</li>
                   <li>3. Each trade is saved with its platform ID, so re-syncing won't create duplicates.</li>
                   <li>4. Your credentials are never stored — they're used only for this sync request.</li>
