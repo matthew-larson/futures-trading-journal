@@ -34,14 +34,17 @@ function friendlyAuthError(e: unknown): string {
   if (msg.includes("email") && msg.includes("invalid")) {
     return "Please enter a valid email address.";
   }
-  // Password validation messages are user-actionable — pass them through so the
-  // user knows exactly what requirement they missed.
+  // Password problems are user-actionable, but the backend's own wording is
+  // never rendered: it identifies the provider and exposes the policy shape.
+  // Each case maps to a fixed sentence that states the requirement itself.
   if (msg.includes("password")) {
     if (msg.includes("weak") || msg.includes("easy to guess") || msg.includes("known")) {
       return "That password has appeared in known data breaches and isn't safe to use. Please choose a different one that isn't a common word, name, or simple pattern.";
     }
-    const raw = (e as { message?: string })?.message ?? "";
-    return raw || "That password doesn't meet the requirements. Please try a different one.";
+    if (msg.includes("short") || msg.includes("at least") || msg.includes("length")) {
+      return "That password is too short. Please use at least 8 characters.";
+    }
+    return "That password doesn't meet the requirements. Please choose a longer password of at least 8 characters that isn't a common word or simple pattern.";
   }
   return "Something went wrong. Please try again.";
 }
@@ -73,8 +76,8 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
         if (error) throw error;
         if (data.user) onAuthenticated(data.user);
       } else if (mode === "signup") {
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters long.");
+        if (password.length < 8) {
+          setError("Password must be at least 8 characters long.");
           return;
         }
         const { error } = await supabase.auth.signUp({ email, password });
