@@ -98,6 +98,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    if (typeof cid !== "string" || typeof sec !== "string" || !cid.trim() || !sec.trim()) {
+      return new Response(
+        JSON.stringify({ error: "Tradovate API Client ID and Secret are required for sync." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const baseUrl = mode === "live"
       ? "https://live.tradovateapi.com/v1"
       : "https://demo.tradovateapi.com/v1";
@@ -109,8 +116,8 @@ Deno.serve(async (req: Request) => {
       appId,
       appVersion,
     };
-    if (cid) authBody.cid = String(cid);
-    if (sec) authBody.sec = String(sec);
+    authBody.cid = cid.trim();
+    authBody.sec = sec.trim();
     if (deviceId) authBody.deviceId = String(deviceId);
 
     const authRes = await fetch(`${baseUrl}/auth/accessTokenRequest`, {
@@ -129,11 +136,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const authData = await authRes.json();
-    const accessToken = authData.accessToken;
-    if (typeof accessToken !== "string") {
+    const accessToken = authData?.accessToken;
+    if (typeof accessToken !== "string" || accessToken.length === 0) {
+      const rejectedMessage = typeof authData?.errorText === "string"
+        ? authData.errorText
+        : typeof authData?.errorCode === "string"
+          ? authData.errorCode
+          : "Tradovate did not return a valid access token.";
+      console.error("Tradovate auth returned no token", rejectedMessage);
       return new Response(
-        JSON.stringify({ error: "Tradovate did not return a valid access token." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Tradovate rejected the login or API credentials. Check the account type, username, password, Client ID, and Secret." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

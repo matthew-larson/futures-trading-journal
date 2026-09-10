@@ -288,7 +288,14 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
   };
 
   const handleTradovateSync = async () => {
-    if (!tvUser.trim() || !tvPass.trim()) return;
+    if (!tvUser.trim() || !tvPass.trim() || !tvCid.trim() || !tvSec.trim()) {
+      setProgress({
+        ...initialProgress,
+        status: "error",
+        message: "Tradovate requires your Client ID and Secret for API sync.",
+      });
+      return;
+    }
 
     setProgress({
       ...initialProgress,
@@ -793,27 +800,27 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Client ID <span className="text-base-500">(optional)</span>
+                        Client ID
                       </label>
                       <input
                         type="text"
                         value={tvCid}
                         onChange={(e) => setTvCid(e.target.value)}
                         className={inputCls}
-                        placeholder="For API credentials"
+                        placeholder="Your Tradovate API client ID"
                         autoComplete="off"
                       />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Secret <span className="text-base-500">(optional)</span>
+                        Secret
                       </label>
                       <input
                         type="password"
                         value={tvSec}
                         onChange={(e) => setTvSec(e.target.value)}
                         className={inputCls}
-                        placeholder="For API credentials"
+                        placeholder="Your Tradovate API secret"
                         autoComplete="off"
                       />
                     </div>
@@ -839,6 +846,8 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                     disabled={
                       !tvUser.trim() ||
                       !tvPass.trim() ||
+                      !tvCid.trim() ||
+                      !tvSec.trim() ||
                       progress.status === "syncing"
                     }
                     className="flex items-center gap-2 rounded-lg bg-info-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-info-500 disabled:opacity-60"
