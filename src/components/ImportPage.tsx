@@ -53,11 +53,13 @@ const PLATFORMS: Platform[] = [
   {
     id: "tradovate",
     name: "Tradovate",
-    description: "Sync trades from your live Tradovate account via API. Requires API access (not available on demo accounts).",
+    description: "Export your trade history from Tradovate's Trades tab and import the CSV file. Works with both demo and live accounts.",
     icon: <Zap size={22} />,
     color: "from-blue-500 to-cyan-500",
     accent: "text-blue-400",
-    type: "api",
+    type: "csv",
+    csvHint: "tradovate_trades.csv",
+    sampleColumns: "Date/Time, Contract, Action, Qty, Fill Price, P/L",
   },
   {
     id: "tradingview",
@@ -126,6 +128,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
   const [tvUser, setTvUser] = useState("");
   const [tvPass, setTvPass] = useState("");
   const [tvMode] = useState<"demo" | "live">("live");
+  const [tvImportMode, setTvImportMode] = useState<"csv" | "api">("csv");
   const [tvCid, setTvCid] = useState("");
   const [tvSec, setTvSec] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -724,133 +727,542 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
             </div>
           )}
 
-          {/* Tradovate API sync flow */}
-          {selected.type === "api" && (
+          {/* Tradovate CSV import flow with optional API sync */}
+          {selected.type === "csv" && selected.id === "tradovate" && (
             <div className="space-y-6">
+              {/* Mode toggle */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTvImportMode("csv")}
+                  className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    tvImportMode === "csv"
+                      ? "border-info-500 bg-info-500/15 text-info-400"
+                      : "border-base-700 bg-base-850 text-base-400 hover:border-base-600"
+                  }`}
+                >
+                  CSV Upload
+                </button>
+                <button
+                  onClick={() => setTvImportMode("api")}
+                  className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    tvImportMode === "api"
+                      ? "border-info-500 bg-info-500/15 text-info-400"
+                      : "border-base-700 bg-base-850 text-base-400 hover:border-base-600"
+                  }`}
+                >
+                  API Sync (Live accounts)
+                </button>
+              </div>
+
+              {tvImportMode === "csv" && (
+                <>
+                  <div className="rounded-xl border border-base-700 bg-base-850 p-5">
+                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-100">
+                      <FileText size={16} className={selected.accent} />
+                      How to export from Tradovate
+                    </h3>
+                    <ol className="ml-4 list-decimal space-y-1.5 text-xs text-base-300">
+                      <li>Log in to Tradovate and go to the <span className="font-medium text-base-100">Account</span> tab.</li>
+                      <li>Click the <span className="font-medium text-base-100">Trades</span> sub-tab (not P&L Summary — that view lacks individual trade details).</li>
+                      <li>Use the date picker to select your desired date range.</li>
+                      <li>Click the <span className="font-medium text-base-100">Export</span> button (download icon) and choose CSV.</li>
+                      <li>Upload the file below — we'll parse and preview the trades before saving.</li>
+                    </ol>
+                    <div className="mt-3 rounded-lg border border-base-700 bg-base-900 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-base-400">
+                        Expected columns
+                      </p>
+                      <p className="mt-1 font-mono text-xs text-base-200">Date/Time, Contract, Action, Qty, Fill Price, P/L</p>
+                    </div>
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-info-500/20 bg-info-500/5 p-3">
+                      <Info size={14} className="mt-0.5 flex-shrink-0 text-info-400" />
+                      <p className="text-xs text-base-300">
+                        Tradovate's CSV export does not include fees — P&L is gross. Your trades will be imported with fees set to zero.
+                        Works with both demo and live accounts.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {tvImportMode === "api" && (
+                <div className="rounded-xl border border-base-700 bg-base-850 p-5">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-100">
+                    <Zap size={16} className={selected.accent} />
+                    Connect your live Tradovate account
+                  </h3>
+                  <p className="mb-4 text-xs text-base-400">
+                    Enter your live Tradovate account credentials and API keys to automatically sync your trade history.
+                    Your credentials are used only for this sync and are not stored.
+                  </p>
+
+                  <div className="mb-4 flex items-start gap-2 rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
+                    <Info size={14} className="mt-0.5 flex-shrink-0 text-warn-500" />
+                    <p className="text-xs text-warn-500">
+                      API access requires a funded live Tradovate account. Demo accounts do not support API sync —
+                      use CSV upload instead.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-base-300">
+                          Tradovate username
+                        </label>
+                        <input
+                          type="text"
+                          value={tvUser}
+                          onChange={(e) => setTvUser(e.target.value)}
+                          className={inputCls}
+                          placeholder="Your Tradovate username"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-base-300">
+                          Password
+                        </label>
+                        <input
+                          type="password"
+                          value={tvPass}
+                          onChange={(e) => setTvPass(e.target.value)}
+                          className={inputCls}
+                          placeholder="Your Tradovate password"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-base-300">
+                          Client ID
+                        </label>
+                        <input
+                          type="text"
+                          value={tvCid}
+                          onChange={(e) => setTvCid(e.target.value)}
+                          className={inputCls}
+                          placeholder="Your Tradovate API client ID"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-base-300">
+                          Secret
+                        </label>
+                        <input
+                          type="password"
+                          value={tvSec}
+                          onChange={(e) => setTvSec(e.target.value)}
+                          className={inputCls}
+                          placeholder="Your Tradovate API secret"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedPlatform(null);
+                        reset();
+                        setTvUser("");
+                        setTvPass("");
+                        setTvCid("");
+                        setTvSec("");
+                      }}
+                      className="rounded-lg border border-base-600 px-4 py-2 text-sm font-medium text-base-200 transition-colors hover:bg-base-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleTradovateSync}
+                      disabled={
+                        !tvUser.trim() ||
+                        !tvPass.trim() ||
+                        !tvCid.trim() ||
+                        !tvSec.trim() ||
+                        progress.status === "syncing"
+                      }
+                      className="flex items-center gap-2 rounded-lg bg-info-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-info-500 disabled:opacity-60"
+                    >
+                      {progress.status === "syncing" ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Zap size={16} />
+                      )}
+                      {progress.status === "syncing" ? "Syncing..." : "Sync Trades"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* CSV drop zone — only in CSV mode */}
+              {tvImportMode === "csv" && !showPreview && progress.status !== "saving" && (
+                <div>
+                  <label
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-base-600 px-6 py-12 text-center transition-colors hover:border-base-500 hover:bg-base-800/50"
+                  >
+                    {progress.status === "parsing" ? (
+                      <Loader2 size={32} className="animate-spin text-info-400" />
+                    ) : (
+                      <Upload size={32} className="text-base-400" />
+                    )}
+                    <span className="mt-3 text-sm font-medium text-base-200">
+                      {progress.status === "parsing" ? "Parsing..." : "Click to upload Tradovate CSV"}
+                    </span>
+                    <span className="mt-1 text-xs text-base-500">
+                      tradovate_trades.csv
+                    </span>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFile(f);
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Syncing progress */}
+              {progress.status === "syncing" && (
+                <div className="flex items-center gap-3 rounded-xl border border-info-500/30 bg-info-500/10 p-4">
+                  <Loader2 size={20} className="animate-spin text-info-400" />
+                  <p className="text-sm text-info-400">{progress.message}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Other CSV platforms (TradingView, NinjaTrader, Rithmic) */}
+          {selected.type === "csv" && selected.id !== "tradovate" && (
+            <div className="space-y-6">
+              {/* Instructions */}
               <div className="rounded-xl border border-base-700 bg-base-850 p-5">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-100">
-                  <Zap size={16} className={selected.accent} />
-                  Connect your Tradovate account
+                  <FileText size={16} className={selected.accent} />
+                  How to export from {selected.name}
                 </h3>
-                <p className="mb-4 text-xs text-base-400">
-                  Enter your live Tradovate account credentials and API keys to automatically sync your trade history.
-                  Your credentials are used only for this sync and are not stored.
-                </p>
-
-                <div className="mb-4 flex items-start gap-2 rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
-                  <Info size={14} className="mt-0.5 flex-shrink-0 text-warn-500" />
-                  <p className="text-xs text-warn-500">
-                    API access requires a funded live Tradovate account. Demo accounts do not support API sync —
-                    use CSV import or sample data instead.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Tradovate username
-                      </label>
-                      <input
-                        type="text"
-                        value={tvUser}
-                        onChange={(e) => setTvUser(e.target.value)}
-                        className={inputCls}
-                        placeholder="Your Tradovate username"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Password
-                      </label>
-                      <input
-                        type="password"
-                        value={tvPass}
-                        onChange={(e) => setTvPass(e.target.value)}
-                        className={inputCls}
-                        placeholder="Your Tradovate password"
-                        autoComplete="off"
-                      />
-                    </div>
+                <ol className="ml-4 list-decimal space-y-1.5 text-xs text-base-300">
+                  <li>Open {selected.name} and navigate to your trade history or strategy tester.</li>
+                  <li>Export your completed trades as a CSV file.</li>
+                  <li>Upload the file below — we'll parse and preview the trades before saving.</li>
+                </ol>
+                {selected.sampleColumns && (
+                  <div className="mt-3 rounded-lg border border-base-700 bg-base-900 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-base-400">
+                      Expected columns
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-base-200">{selected.sampleColumns}</p>
                   </div>
+                )}
+              </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Client ID
-                      </label>
-                      <input
-                        type="text"
-                        value={tvCid}
-                        onChange={(e) => setTvCid(e.target.value)}
-                        className={inputCls}
-                        placeholder="Your Tradovate API client ID"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-base-300">
-                        Secret
-                      </label>
-                      <input
-                        type="password"
-                        value={tvSec}
-                        onChange={(e) => setTvSec(e.target.value)}
-                        className={inputCls}
-                        placeholder="Your Tradovate API secret"
-                        autoComplete="off"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      setSelectedPlatform(null);
-                      reset();
-                      setTvUser("");
-                      setTvPass("");
-                      setTvCid("");
-                      setTvSec("");
-                    }}
-                    className="rounded-lg border border-base-600 px-4 py-2 text-sm font-medium text-base-200 transition-colors hover:bg-base-700"
+              {/* Drop zone */}
+              {!showPreview && progress.status !== "saving" && (
+                <div>
+                  <label
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-base-600 px-6 py-12 text-center transition-colors hover:border-base-500 hover:bg-base-800/50"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleTradovateSync}
-                    disabled={
-                      !tvUser.trim() ||
-                      !tvPass.trim() ||
-                      !tvCid.trim() ||
-                      !tvSec.trim() ||
-                      progress.status === "syncing"
-                    }
-                    className="flex items-center gap-2 rounded-lg bg-info-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-info-500 disabled:opacity-60"
-                  >
-                    {progress.status === "syncing" ? (
-                      <Loader2 size={16} className="animate-spin" />
+                    {progress.status === "parsing" ? (
+                      <Loader2 size={32} className="animate-spin text-info-400" />
                     ) : (
-                      <Zap size={16} />
+                      <Upload size={32} className="text-base-400" />
                     )}
-                    {progress.status === "syncing" ? "Syncing..." : "Sync Trades"}
-                  </button>
+                    <span className="mt-3 text-sm font-medium text-base-200">
+                      {progress.status === "parsing" ? "Parsing..." : `Click to upload ${selected.name} CSV`}
+                    </span>
+                    <span className="mt-1 text-xs text-base-500">
+                      {selected.csvHint ?? "Select a .csv file"}
+                    </span>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFile(f);
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Parsing errors */}
+              {parsedResult && parsedResult.errors.length > 0 && !showPreview && (
+                <div className="rounded-xl border border-warn-500/30 bg-warn-500/10 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="mt-0.5 text-warn-500" />
+                    <div>
+                      <p className="text-sm font-medium text-warn-500">
+                        {parsedResult.errors.length} row{parsedResult.errors.length === 1 ? "" : "s"} had issues
+                      </p>
+                      <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5 text-xs text-warn-500/80">
+                        {parsedResult.errors.slice(0, 10).map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                        {parsedResult.errors.length > 10 && (
+                          <li>...and {parsedResult.errors.length - 10} more</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview table */}
+              {showPreview && pendingTrades.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-base-100">
+                      Preview — {pendingTrades.length} trade{pendingTrades.length === 1 ? "" : "s"} found
+                    </h3>
+                    <button
+                      onClick={reset}
+                      className="text-xs text-base-400 transition-colors hover:text-base-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="max-h-96 overflow-auto rounded-xl border border-base-700 bg-base-900">
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-base-850 text-base-400">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Instrument</th>
+                          <th className="px-3 py-2 font-medium">Dir</th>
+                          <th className="px-3 py-2 text-right font-medium">Qty</th>
+                          <th className="px-3 py-2 text-right font-medium">Entry</th>
+                          <th className="px-3 py-2 text-right font-medium">Exit</th>
+                          <th className="px-3 py-2 text-right font-medium">P&L</th>
+                          <th className="px-3 py-2 font-medium">Entry Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingTrades.slice(0, 50).map((pt, i) => (
+                          <tr
+                            key={i}
+                            className="border-t border-base-800 hover:bg-base-800/50"
+                          >
+                            <td className="px-3 py-2 font-medium text-base-100">
+                              {pt.input.instrument}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={
+                                  pt.input.direction === "long"
+                                    ? "text-bull-500"
+                                    : "text-bear-500"
+                                }
+                              >
+                                {pt.input.direction === "long" ? "Long" : "Short"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right tabular text-base-200">
+                              {pt.input.quantity}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular text-base-200">
+                              {pt.input.entry_price}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular text-base-200">
+                              {pt.input.exit_price ?? "—"}
+                            </td>
+                            <td
+                              className={`px-3 py-2 text-right tabular font-medium ${
+                                (pt.input.pnl ?? 0) > 0
+                                  ? "text-bull-500"
+                                  : (pt.input.pnl ?? 0) < 0
+                                  ? "text-bear-500"
+                                  : "text-base-300"
+                              }`}
+                            >
+                              {pt.input.pnl !== null
+                                ? `${pt.input.pnl.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                                : "—"}
+                            </td>
+                            <td className="px-3 py-2 text-base-300">
+                              {new Date(pt.input.entry_time).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {pendingTrades.length > 50 && (
+                      <div className="border-t border-base-800 bg-base-850 px-3 py-2 text-center text-xs text-base-400">
+                        Showing first 50 of {pendingTrades.length} trades
+                      </div>
+                    )}
+                  </div>
+
+                  {parsedResult && parsedResult.errors.length > 0 && (
+                    <p className="text-xs text-warn-500">
+                      {parsedResult.errors.length} row{parsedResult.errors.length === 1 ? "" : "s"} were skipped due to parsing issues.
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={reset}
+                      className="rounded-lg border border-base-600 px-4 py-2 text-sm font-medium text-base-200 transition-colors hover:bg-base-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmImport}
+                      disabled={progress.status === "saving"}
+                      className="flex items-center gap-2 rounded-lg bg-info-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-info-500 disabled:opacity-60"
+                    >
+                      {progress.status === "saving" ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Download size={16} />
+                      )}
+                      {progress.status === "saving" ? "Saving..." : `Import ${pendingTrades.length} Trade${pendingTrades.length === 1 ? "" : "s"}`}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Saving progress */}
+              {progress.status === "saving" && (
+                <div className="flex items-center gap-3 rounded-xl border border-info-500/30 bg-info-500/10 p-4">
+                  <Loader2 size={20} className="animate-spin text-info-400" />
+                  <p className="text-sm text-info-400">{progress.message}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tradovate CSV: parsing errors and preview (shared with other CSV platforms but rendered outside the mode-specific block) */}
+          {selected.id === "tradovate" && tvImportMode === "csv" && parsedResult && parsedResult.errors.length > 0 && !showPreview && (
+            <div className="mt-4 rounded-xl border border-warn-500/30 bg-warn-500/10 p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 text-warn-500" />
+                <div>
+                  <p className="text-sm font-medium text-warn-500">
+                    {parsedResult.errors.length} row{parsedResult.errors.length === 1 ? "" : "s"} had issues
+                  </p>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5 text-xs text-warn-500/80">
+                    {parsedResult.errors.slice(0, 10).map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                    {parsedResult.errors.length > 10 && (
+                      <li>...and {parsedResult.errors.length - 10} more</li>
+                    )}
+                  </ul>
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="rounded-xl border border-base-700 bg-base-900 p-4">
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-base-400">
-                  How it works
-                </h4>
-                <ul className="space-y-1.5 text-xs text-base-300">
-                  <li>1. We securely authenticate with Tradovate using your live account credentials and API keys.</li>
-                  <li>2. Your complete fill history is downloaded and paired into round-trip trades.</li>
-                  <li>3. Each trade is saved with its platform ID, so re-syncing won't create duplicates.</li>
-                  <li>4. Your credentials are never stored — they're used only for this sync request.</li>
-                </ul>
+          {selected.id === "tradovate" && tvImportMode === "csv" && showPreview && pendingTrades.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-base-100">
+                  Preview — {pendingTrades.length} trade{pendingTrades.length === 1 ? "" : "s"} found
+                </h3>
+                <button
+                  onClick={reset}
+                  className="text-xs text-base-400 transition-colors hover:text-base-200"
+                >
+                  Cancel
+                </button>
               </div>
+
+              <div className="max-h-96 overflow-auto rounded-xl border border-base-700 bg-base-900">
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-base-850 text-base-400">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Instrument</th>
+                      <th className="px-3 py-2 font-medium">Dir</th>
+                      <th className="px-3 py-2 text-right font-medium">Qty</th>
+                      <th className="px-3 py-2 text-right font-medium">Entry</th>
+                      <th className="px-3 py-2 text-right font-medium">Exit</th>
+                      <th className="px-3 py-2 text-right font-medium">P&L</th>
+                      <th className="px-3 py-2 font-medium">Entry Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingTrades.slice(0, 50).map((pt, i) => (
+                      <tr key={i} className="border-t border-base-800 hover:bg-base-800/50">
+                        <td className="px-3 py-2 font-medium text-base-100">{pt.input.instrument}</td>
+                        <td className="px-3 py-2">
+                          <span className={pt.input.direction === "long" ? "text-bull-500" : "text-bear-500"}>
+                            {pt.input.direction === "long" ? "Long" : "Short"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular text-base-200">{pt.input.quantity}</td>
+                        <td className="px-3 py-2 text-right tabular text-base-200">{pt.input.entry_price}</td>
+                        <td className="px-3 py-2 text-right tabular text-base-200">{pt.input.exit_price ?? "—"}</td>
+                        <td className={`px-3 py-2 text-right tabular font-medium ${
+                          (pt.input.pnl ?? 0) > 0 ? "text-bull-500" : (pt.input.pnl ?? 0) < 0 ? "text-bear-500" : "text-base-300"
+                        }`}>
+                          {pt.input.pnl !== null
+                            ? `${pt.input.pnl.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-base-300">
+                          {new Date(pt.input.entry_time).toLocaleDateString("en-US", {
+                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pendingTrades.length > 50 && (
+                  <div className="border-t border-base-800 bg-base-850 px-3 py-2 text-center text-xs text-base-400">
+                    Showing first 50 of {pendingTrades.length} trades
+                  </div>
+                )}
+              </div>
+
+              {parsedResult && parsedResult.errors.length > 0 && (
+                <p className="text-xs text-warn-500">
+                  {parsedResult.errors.length} row{parsedResult.errors.length === 1 ? "" : "s"} were skipped due to parsing issues.
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={reset}
+                  className="rounded-lg border border-base-600 px-4 py-2 text-sm font-medium text-base-200 transition-colors hover:bg-base-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmImport}
+                  disabled={progress.status === "saving"}
+                  className="flex items-center gap-2 rounded-lg bg-info-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-info-500 disabled:opacity-60"
+                >
+                  {progress.status === "saving" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  {progress.status === "saving" ? "Saving..." : `Import ${pendingTrades.length} Trade${pendingTrades.length === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selected.id === "tradovate" && tvImportMode === "csv" && progress.status === "saving" && (
+            <div className="flex items-center gap-3 rounded-xl border border-info-500/30 bg-info-500/10 p-4">
+              <Loader2 size={20} className="animate-spin text-info-400" />
+              <p className="text-sm text-info-400">{progress.message}</p>
             </div>
           )}
 
@@ -912,14 +1324,6 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Syncing progress */}
-          {progress.status === "syncing" && (
-            <div className="mt-6 flex items-center gap-3 rounded-xl border border-info-500/30 bg-info-500/10 p-4">
-              <Loader2 size={20} className="animate-spin text-info-400" />
-              <p className="text-sm text-info-400">{progress.message}</p>
             </div>
           )}
         </div>
