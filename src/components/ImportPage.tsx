@@ -478,7 +478,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                           : "bg-base-700 text-base-300"
                       }`}
                     >
-                      {p.type === "api" ? "Auto Sync" : "CSV Upload"}
+                      {p.id === "tradovate" ? "CSV + API" : p.type === "api" ? "Auto Sync" : "CSV Upload"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-base-400">{p.description}</p>
