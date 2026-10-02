@@ -59,7 +59,7 @@ const PLATFORMS: Platform[] = [
     accent: "text-blue-400",
     type: "csv",
     csvHint: "tradovate_trades.csv",
-    sampleColumns: "Date/Time, Contract, Action, Qty, Fill Price, P/L",
+    sampleColumns: "symbol, qty, buyPrice, sellPrice, pnl, boughtTimestamp, soldTimestamp, duration",
   },
   {
     id: "tradingview",
@@ -762,10 +762,9 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                       How to export from Tradovate
                     </h3>
                     <ol className="ml-4 list-decimal space-y-1.5 text-xs text-base-300">
-                      <li>Log in to Tradovate and go to the <span className="font-medium text-base-100">Account</span> tab.</li>
-                      <li>Click the <span className="font-medium text-base-100">Trades</span> sub-tab (not P&L Summary — that view lacks individual trade details).</li>
-                      <li>Use the date picker to select your desired date range.</li>
-                      <li>Click the <span className="font-medium text-base-100">Export</span> button (download icon) and choose CSV.</li>
+                      <li>Log in to Tradovate and go to <span className="font-medium text-base-100">Reports &gt; Performance</span>.</li>
+                      <li>Set your desired date range at the top of the report.</li>
+                      <li>Click <span className="font-medium text-base-100">Export</span> and choose CSV format.</li>
                       <li>Upload the file below — we'll parse and preview the trades before saving.</li>
                     </ol>
                     <div className="mt-3 rounded-lg border border-base-700 bg-base-900 p-3">
@@ -777,8 +776,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                     <div className="mt-3 flex items-start gap-2 rounded-lg border border-info-500/20 bg-info-500/5 p-3">
                       <Info size={14} className="mt-0.5 flex-shrink-0 text-info-400" />
                       <p className="text-xs text-base-300">
-                        Tradovate's CSV export does not include fees — P&L is gross. Your trades will be imported with fees set to zero.
-                        Works with both demo and live accounts.
+                        Tradovate's CSV export does not include fees — P&L is gross. Each row is a complete round-trip trade with buy and sell prices, timestamps, and P&L. Works with both demo and live accounts.
                       </p>
                     </div>
                   </div>

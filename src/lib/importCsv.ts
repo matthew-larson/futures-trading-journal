@@ -474,16 +474,30 @@ function parseRithmic(text: string): ParseResult {
 /* ------------------------------------------------------------------ */
 /* Tradovate CSV parser                                                */
 /* ------------------------------------------------------------------ */
-/* Tradovate Trades tab export columns:
-   Date/Time, Contract, Action (Buy/Sell), Qty, Fill Price, P/L
+/* Tradovate Performance/Trades export columns (actual):
+   symbol, _priceFormat, _priceFormatType, _tickSize, buyFillId, sellFillId,
+   qty, buyPrice, sellPrice, pnl, boughtTimestamp, soldTimestamp, duration
 
-   Each row represents a fill (a single leg). A round-trip trade is a
-   Buy followed by a Sell (or vice versa) for the same contract. We pair
-   consecutive fills by matching opening legs with closing legs of the
-   same contract and action direction.
+   Each row is already a complete round-trip trade — no fill pairing
+   needed. Direction is inferred from timestamps: if soldTimestamp is
+   earlier than boughtTimestamp, the sell came first (short). Otherwise
+   the buy came first (long).
 
-   Fees are NOT included in the Tradovate CSV — P/L is gross only. We
-   set fees to 0 and use the P/L column as-is for pnl. */
+   P&L uses accounting notation: $12.50 for profit, $(26.25) for loss.
+   Fees are NOT included — P&L is gross only. */
+
+function parseTradovatePnl(v: string | undefined): number | null {
+  if (v === undefined) return null;
+  const cleaned = v.replace(/[$,\s]/g, "");
+  if (cleaned === "" || cleaned === "--" || cleaned === "n/a") return null;
+  const parenMatch = cleaned.match(/^\((.+)\)$/);
+  if (parenMatch) {
+    const n = Number(parenMatch[1]);
+    return isNaN(n) ? null : -n;
+  }
+  const n = Number(cleaned);
+  return isNaN(n) ? null : n;
+}
 
 function parseTradovate(text: string): ParseResult {
   const rows = parseCsv(text);
@@ -498,103 +512,70 @@ function parseTradovate(text: string): ParseResult {
   const h = headerMap(headers);
   const dataRows = rows.slice(hdrIdx + 1);
 
-  const datetimeCol = h["datetime"] ?? h["date"] ?? h["time"] ?? h["tradetime"];
-  const contractCol = h["contract"] ?? h["symbol"] ?? h["instrument"];
-  const actionCol = h["action"] ?? h["side"] ?? h["type"] ?? h["buysell"];
+  const symbolCol = h["symbol"] ?? h["contract"] ?? h["instrument"];
   const qtyCol = h["qty"] ?? h["quantity"] ?? h["contracts"];
-  const priceCol = h["fillprice"] ?? h["price"] ?? h["fill"] ?? h["entryprice"];
-  const pnlCol = h["pl"] ?? h["pnl"] ?? h["profitloss"] ?? h["netpnl"];
+  const buyPriceCol = h["buyprice"] ?? h["buyfillprice"];
+  const sellPriceCol = h["sellprice"] ?? h["sellfillprice"];
+  const pnlCol = h["pnl"] ?? h["pl"] ?? h["profitloss"];
+  const boughtTimeCol = h["boughttimestamp"] ?? h["boughttime"] ?? h["buytime"];
+  const soldTimeCol = h["soldtimestamp"] ?? h["soldtime"] ?? h["selltime"];
+  const buyFillIdCol = h["buyfillid"];
+  const sellFillIdCol = h["sellfillid"];
 
-  if (contractCol === undefined || actionCol === undefined || priceCol === undefined) {
+  if (symbolCol === undefined || buyPriceCol === undefined || sellPriceCol === undefined) {
     return {
       trades,
-      errors: ["Could not find required columns (Contract, Action, Fill Price). Make sure you exported the Trades tab, not the P&L Summary."],
+      errors: ["Could not find required columns (symbol, buyPrice, sellPrice). Make sure you exported from Tradovate's Performance/Trades report as CSV."],
       totalRows: dataRows.length,
     };
   }
 
-  // Group fills by contract, maintaining order, then pair into round trips.
-  // A "Buy" opens a long / closes a short; a "Sell" opens a short / closes a long.
-  // We track open positions per contract and pair fills FIFO.
-  interface OpenLeg {
-    rowIndex: number;
-    action: "Buy" | "Sell";
-    qty: number;
-    price: number;
-    time: string | null;
-  }
-  const openLegs = new Map<string, OpenLeg[]>();
-  let tradeSeq = 0;
-
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
     try {
-      const contract = contractCol !== undefined ? str(row[contractCol]) : null;
-      const actionRaw = actionCol !== undefined ? str(row[actionCol]) : null;
+      const symbol = str(row[symbolCol]);
       const qty = qtyCol !== undefined ? num(row[qtyCol]) : null;
-      const price = priceCol !== undefined ? num(row[priceCol]) : null;
-      const time = datetimeCol !== undefined ? toIso(row[datetimeCol]) : null;
-      const pnl = pnlCol !== undefined ? num(row[pnlCol]) : null;
+      const buyPrice = num(row[buyPriceCol]);
+      const sellPrice = num(row[sellPriceCol]);
+      const boughtTime = boughtTimeCol !== undefined ? toIso(row[boughtTimeCol]) : null;
+      const soldTime = soldTimeCol !== undefined ? toIso(row[soldTimeCol]) : null;
+      const buyFillId = buyFillIdCol !== undefined ? str(row[buyFillIdCol]) : null;
+      const sellFillId = sellFillIdCol !== undefined ? str(row[sellFillIdCol]) : null;
+      const pnl = pnlCol !== undefined ? parseTradovatePnl(row[pnlCol]) : null;
 
-      if (!contract || !actionRaw || qty === null || price === null) {
-        errors.push(`Row ${i + 2}: missing contract, action, qty, or price — skipped.`);
+      if (!symbol || buyPrice === null || sellPrice === null || qty === null) {
+        errors.push(`Row ${i + 2}: missing symbol, buy/sell price, or quantity — skipped.`);
         continue;
       }
 
-      const action = actionRaw.toLowerCase().startsWith("b") ? "Buy" : "Sell";
-      const legs = openLegs.get(contract) ?? [];
+      // Direction: if sold before bought → short (sell to open, buy to cover)
+      const isShort = soldTime !== null && boughtTime !== null && soldTime < boughtTime;
+      const direction: Direction = isShort ? "short" : "long";
 
-      if (legs.length > 0) {
-        // Check if this fill closes an open position
-        const openLeg = legs[0];
-        const isClosing = (openLeg.action === "Buy" && action === "Sell") || (openLeg.action === "Sell" && action === "Buy");
+      const entryPrice = isShort ? sellPrice : buyPrice;
+      const exitPrice = isShort ? buyPrice : sellPrice;
+      const entryTime = isShort ? soldTime : boughtTime;
+      const exitTime = isShort ? boughtTime : soldTime;
 
-        if (isClosing) {
-          // We have a round-trip trade
-          legs.shift();
-          if (legs.length === 0) openLegs.delete(contract);
-          else openLegs.set(contract, legs);
+      const ref = `tv-csv-${buyFillId ?? ""}-${sellFillId ?? ""}-${i + 2}`;
 
-          tradeSeq++;
-          const direction = openLeg.action === "Buy" ? "long" : "short";
-          const entryPrice = openLeg.price;
-          const exitPrice = price;
-          const entryTime = openLeg.time;
-          const exitTime = time;
-          const ref = `tv-csv-${tradeSeq}`;
-          const tradePnl = pnl ?? null;
+      const input = applyBounds({
+        ...emptyTradeInput(),
+        instrument: symbol.toUpperCase(),
+        direction,
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        quantity: qty,
+        entry_time: entryTime ?? new Date().toISOString(),
+        exit_time: exitTime,
+        pnl,
+        fees: 0,
+        market_session: entryTime ? guessSession(entryTime) : "new_york",
+      });
 
-          const input = applyBounds({
-            ...emptyTradeInput(),
-            instrument: contract.toUpperCase(),
-            direction,
-            entry_price: entryPrice,
-            exit_price: exitPrice,
-            quantity: qty,
-            entry_time: entryTime ?? new Date().toISOString(),
-            exit_time: exitTime,
-            pnl: tradePnl,
-            fees: 0,
-            market_session: entryTime ? guessSession(entryTime) : "new_york",
-          });
-
-          trades.push({ input, importRef: ref, source: "tradovate", warnings: [] });
-          continue;
-        }
-      }
-
-      // Not a closing fill — open a new position
-      legs.push({ rowIndex: i, action, qty, price, time });
-      openLegs.set(contract, legs);
+      trades.push({ input, importRef: ref, source: "tradovate", warnings: [] });
     } catch {
       errors.push(`Row ${i + 2}: could not parse — skipped.`);
-    }
-  }
-
-  // Any remaining open legs are unclosed positions — report as warnings
-  for (const [contract, legs] of openLegs) {
-    for (const leg of legs) {
-      errors.push(`Unclosed ${leg.action} of ${leg.qty} ${contract} at row ${leg.rowIndex + 2} — no matching close found, skipped.`);
     }
   }
 
