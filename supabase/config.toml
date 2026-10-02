@@ -1,2 +1,8 @@
 [functions.sync-tradovate]
 verify_jwt = true
+
+[functions.analyze-trade]
+verify_jwt = true
+
+[functions.coach-chat]
+verify_jwt = true

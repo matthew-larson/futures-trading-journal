@@ -37,11 +37,24 @@ interface RuleRow {
 
 // Creates a Supabase client scoped to the requesting user's JWT.
 // RLS policies enforce that only the user's own rows are visible.
-function createUserClient(req: Request) {
+//
+// The token must be VERIFIED, not merely present: the project's anon key is
+// itself a valid JWT and is published in the browser bundle, so a prefix
+// check would let anyone through. auth.getUser() resolves the token to a
+// real end user and fails for the anon key, which carries no user identity.
+async function createUserClient(req: Request) {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return null;
-  const token = authHeader.replace("Bearer ", "");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return null;
+
+  const authClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!
+  );
+  const { data: authUser, error: authUserError } = await authClient.auth.getUser(token);
+  if (authUserError || !authUser?.user) return null;
+
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -443,7 +456,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Create a user-scoped client so RLS enforces ownership
-    const userClient = createUserClient(req);
+    const userClient = await createUserClient(req);
     if (!userClient) {
       return new Response(
         JSON.stringify({ error: "Authentication required." }),
