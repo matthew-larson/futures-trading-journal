@@ -53,7 +53,7 @@ const PLATFORMS: Platform[] = [
   {
     id: "tradovate",
     name: "Tradovate",
-    description: "Export your trade history from Tradovate's Trades tab and import the CSV file. Works with both demo and live accounts.",
+    description: "Export from Tradovate's Performance or Orders report and import the CSV. Works with both demo and live accounts.",
     icon: <Zap size={22} />,
     color: "from-blue-500 to-cyan-500",
     accent: "text-blue-400",
@@ -128,7 +128,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
   const [tvUser, setTvUser] = useState("");
   const [tvPass, setTvPass] = useState("");
   const [tvMode] = useState<"demo" | "live">("live");
-  const [tvImportMode, setTvImportMode] = useState<"csv" | "api">("csv");
+  const [tvImportMode, setTvImportMode] = useState<"performance" | "orders" | "api">("performance");
   const [tvCid, setTvCid] = useState("");
   const [tvSec, setTvSec] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -180,7 +180,11 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
 
   const handleFile = useCallback(async (file: File) => {
     if (!selectedPlatform || selected?.type !== "csv") return;
-    const parser = PLATFORM_PARSERS[selectedPlatform];
+    const parserKey =
+      selectedPlatform === "tradovate" && tvImportMode === "orders"
+        ? "tradovate_orders" as ImportSource
+        : selectedPlatform;
+    const parser = PLATFORM_PARSERS[parserKey];
 
     setProgress({ ...initialProgress, status: "parsing", message: `Parsing ${file.name}...` });
 
@@ -210,7 +214,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
         message: "We couldn't read this file. Make sure it's a valid CSV export.",
       });
     }
-  }, [selectedPlatform, selected]);
+  }, [selectedPlatform, selected, tvImportMode]);
 
   const confirmImport = async () => {
     if (pendingTrades.length === 0) return;
@@ -733,14 +737,24 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
               {/* Mode toggle */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setTvImportMode("csv")}
+                  onClick={() => setTvImportMode("performance")}
                   className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                    tvImportMode === "csv"
+                    tvImportMode === "performance"
                       ? "border-info-500 bg-info-500/15 text-info-400"
                       : "border-base-700 bg-base-850 text-base-400 hover:border-base-600"
                   }`}
                 >
-                  CSV Upload
+                  Performance CSV
+                </button>
+                <button
+                  onClick={() => setTvImportMode("orders")}
+                  className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    tvImportMode === "orders"
+                      ? "border-info-500 bg-info-500/15 text-info-400"
+                      : "border-base-700 bg-base-850 text-base-400 hover:border-base-600"
+                  }`}
+                >
+                  Orders CSV
                 </button>
                 <button
                   onClick={() => setTvImportMode("api")}
@@ -750,16 +764,16 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                       : "border-base-700 bg-base-850 text-base-400 hover:border-base-600"
                   }`}
                 >
-                  API Sync (Live accounts)
+                  API Sync
                 </button>
               </div>
 
-              {tvImportMode === "csv" && (
+              {tvImportMode === "performance" && (
                 <>
                   <div className="rounded-xl border border-base-700 bg-base-850 p-5">
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-100">
                       <FileText size={16} className={selected.accent} />
-                      How to export from Tradovate
+                      How to export from Tradovate (Performance)
                     </h3>
                     <ol className="ml-4 list-decimal space-y-1.5 text-xs text-base-300">
                       <li>Log in to Tradovate and go to <span className="font-medium text-base-100">Reports &gt; Performance</span>.</li>
@@ -771,12 +785,41 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-base-400">
                         Expected columns
                       </p>
-                      <p className="mt-1 font-mono text-xs text-base-200">Date/Time, Contract, Action, Qty, Fill Price, P/L</p>
+                      <p className="mt-1 font-mono text-xs text-base-200">symbol, qty, buyPrice, sellPrice, pnl, boughtTimestamp, soldTimestamp, duration</p>
                     </div>
                     <div className="mt-3 flex items-start gap-2 rounded-lg border border-info-500/20 bg-info-500/5 p-3">
                       <Info size={14} className="mt-0.5 flex-shrink-0 text-info-400" />
                       <p className="text-xs text-base-300">
-                        Tradovate's CSV export does not include fees — P&L is gross. Each row is a complete round-trip trade with buy and sell prices, timestamps, and P&L. Works with both demo and live accounts.
+                        Each row is a complete round-trip trade with P&amp;L already calculated by Tradovate. This is the recommended export for your trade journal. Works with both demo and live accounts.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {tvImportMode === "orders" && (
+                <>
+                  <div className="rounded-xl border border-base-700 bg-base-850 p-5">
+                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-100">
+                      <FileText size={16} className={selected.accent} />
+                      How to export from Tradovate (Orders)
+                    </h3>
+                    <ol className="ml-4 list-decimal space-y-1.5 text-xs text-base-300">
+                      <li>Log in to Tradovate and go to <span className="font-medium text-base-100">Reports &gt; Orders</span>.</li>
+                      <li>Set your desired date range at the top of the report.</li>
+                      <li>Click <span className="font-medium text-base-100">Export</span> and choose CSV format.</li>
+                      <li>Upload the file below — we'll pair fills into round-trip trades and preview before saving.</li>
+                    </ol>
+                    <div className="mt-3 rounded-lg border border-base-700 bg-base-900 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-base-400">
+                        Expected columns
+                      </p>
+                      <p className="mt-1 font-mono text-xs text-base-200">Contract, B/S, avgPrice, filledQty, Fill Time, Status, Order ID</p>
+                    </div>
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-warn-500/20 bg-warn-500/5 p-3">
+                      <Info size={14} className="mt-0.5 flex-shrink-0 text-warn-500" />
+                      <p className="text-xs text-base-300">
+                        The Orders export lists every individual order, including canceled ones. We filter to filled orders only and pair them FIFO by contract to build round-trip trades. P&amp;L is calculated from the price difference using known contract multipliers (ES/MES, NQ/MNQ). If your instrument isn't in our multiplier table, P&amp;L will be blank for those trades.
                       </p>
                     </div>
                   </div>
@@ -899,7 +942,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
               )}
 
               {/* CSV drop zone — only in CSV mode */}
-              {tvImportMode === "csv" && !showPreview && progress.status !== "saving" && (
+              {(tvImportMode === "performance" || tvImportMode === "orders") && !showPreview && progress.status !== "saving" && (
                 <div>
                   <label
                     className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-base-600 px-6 py-12 text-center transition-colors hover:border-base-500 hover:bg-base-800/50"
@@ -913,7 +956,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
                       {progress.status === "parsing" ? "Parsing..." : "Click to upload Tradovate CSV"}
                     </span>
                     <span className="mt-1 text-xs text-base-500">
-                      tradovate_trades.csv
+                      {tvImportMode === "orders" ? "tradovate_orders.csv" : "tradovate_performance.csv"}
                     </span>
                     <input
                       ref={fileRef}
@@ -1145,7 +1188,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
           )}
 
           {/* Tradovate CSV: parsing errors and preview (shared with other CSV platforms but rendered outside the mode-specific block) */}
-          {selected.id === "tradovate" && tvImportMode === "csv" && parsedResult && parsedResult.errors.length > 0 && !showPreview && (
+          {selected.id === "tradovate" && (tvImportMode === "performance" || tvImportMode === "orders") && parsedResult && parsedResult.errors.length > 0 && !showPreview && (
             <div className="mt-4 rounded-xl border border-warn-500/30 bg-warn-500/10 p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="mt-0.5 text-warn-500" />
@@ -1166,7 +1209,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
             </div>
           )}
 
-          {selected.id === "tradovate" && tvImportMode === "csv" && showPreview && pendingTrades.length > 0 && (
+          {selected.id === "tradovate" && (tvImportMode === "performance" || tvImportMode === "orders") && showPreview && pendingTrades.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-base-100">
@@ -1257,7 +1300,7 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
             </div>
           )}
 
-          {selected.id === "tradovate" && tvImportMode === "csv" && progress.status === "saving" && (
+          {selected.id === "tradovate" && (tvImportMode === "performance" || tvImportMode === "orders") && progress.status === "saving" && (
             <div className="flex items-center gap-3 rounded-xl border border-info-500/30 bg-info-500/10 p-4">
               <Loader2 size={20} className="animate-spin text-info-400" />
               <p className="text-sm text-info-400">{progress.message}</p>

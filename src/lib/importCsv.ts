@@ -1,7 +1,8 @@
 import type { TradeInput, Direction, MarketSession } from "./types";
 import { toNyParts } from "./timezone";
+import { getMultiplier, dollarPnlFromPoints } from "./contracts";
 
-export type ImportSource = "tradovate" | "ninjatrader" | "rithmic" | "tradingview";
+export type ImportSource = "tradovate" | "tradovate_orders" | "ninjatrader" | "rithmic" | "tradingview";
 
 export interface ParsedTrade {
   input: TradeInput;
@@ -583,6 +584,267 @@ function parseTradovate(text: string): ParseResult {
 }
 
 /* ------------------------------------------------------------------ */
+/* Tradovate Orders CSV parser                                         */
+/* ------------------------------------------------------------------ */
+/* Tradovate Orders export columns (actual):
+   orderId, Account, Order ID, B/S, Contract, Product, Product Description,
+   avgPrice, filledQty, Fill Time, lastCommandId, Status, _priceFormat,
+   _priceFormatType, _tickSize, spreadDefinitionId, Version ID, Timestamp,
+   Date, Quantity, Text, Type, Limit Price, Stop Price, decimalLimit,
+   decimalStop, Filled Qty, Avg Fill Price, decimalFillAvg, Venue,
+   Notional Value, Currency
+
+   Each row is an individual order fill, including canceled orders. Only
+   rows with Status = "Filled" and a non-empty Fill Time / avgPrice represent
+   actual executions. We pair fills FIFO by contract to build round-trip
+   trades. P&L is calculated from price difference × multiplier × qty. */
+
+function parseTradovateOrders(text: string): ParseResult {
+  const rows = parseCsv(text);
+  const trades: ParsedTrade[] = [];
+  const errors: string[] = [];
+  if (rows.length < 2) {
+    return { trades, errors: ["File appears to be empty or has no data rows."], totalRows: 0 };
+  }
+
+  const hdrIdx = findHeaderIndex(rows);
+  const headers = rows[hdrIdx];
+  const h = headerMap(headers);
+  const dataRows = rows.slice(hdrIdx + 1);
+
+  const contractCol = h["contract"] ?? h["symbol"];
+  const bsCol = h["bs"] ?? h["bs"] ?? h["action"] ?? h["side"];
+  const avgPriceCol = h["avgprice"] ?? h["avgfillprice"];
+  const filledQtyCol = h["filledqty"] ?? h["filledqty"];
+  const fillTimeCol = h["filltime"];
+  const statusCol = h["status"];
+  const orderIdCol = h["orderid"] ?? h["orderid2"] ?? h["orderid1"];
+
+  if (contractCol === undefined || bsCol === undefined || avgPriceCol === undefined) {
+    return {
+      trades,
+      errors: ["Could not find required columns (Contract, B/S, avgPrice). Make sure you exported from Tradovate's Orders report as CSV."],
+      totalRows: dataRows.length,
+    };
+  }
+
+  // Collect only filled orders, sorted by fill time
+  interface Fill {
+    orderId: string;
+    action: "Buy" | "Sell";
+    contract: string;
+    qty: number;
+    price: number;
+    fillTime: string;
+    fillTimeIso: string;
+    rowIndex: number;
+  }
+
+  const fills: Fill[] = [];
+  for (let i = 0; i < dataRows.length; i++) {
+    const row = dataRows[i];
+    try {
+      const status = statusCol !== undefined ? str(row[statusCol]) : null;
+      // Skip canceled, rejected, or any non-filled order
+      if (!status || !status.toLowerCase().includes("filled")) continue;
+
+      const contract = str(row[contractCol]);
+      const bsRaw = bsCol !== undefined ? str(row[bsCol]) : null;
+      const avgPrice = avgPriceCol !== undefined ? num(row[avgPriceCol]) : null;
+      const filledQty = filledQtyCol !== undefined ? num(row[filledQtyCol]) : null;
+      const fillTimeStr = fillTimeCol !== undefined ? str(row[fillTimeCol]) : null;
+      const orderId = orderIdCol !== undefined ? str(row[orderIdCol]) : null;
+
+      if (!contract || !bsRaw || avgPrice === null || filledQty === null || filledQty <= 0) {
+        continue;
+      }
+
+      const fillTimeIso = toIso(fillTimeStr);
+      if (!fillTimeIso) continue;
+
+      const action: "Buy" | "Sell" = bsRaw.trim().toLowerCase().startsWith("b") ? "Buy" : "Sell";
+
+      fills.push({
+        orderId: orderId ?? `row-${i + 2}`,
+        action,
+        contract,
+        qty: filledQty,
+        price: avgPrice,
+        fillTime: fillTimeStr ?? "",
+        fillTimeIso,
+        rowIndex: i,
+      });
+    } catch {
+      // skip unparseable rows silently — they're not filled orders
+    }
+  }
+
+  // Sort by fill time ascending for FIFO matching
+  fills.sort((a, b) => a.fillTimeIso.localeCompare(b.fillTimeIso));
+
+  // FIFO pair fills by contract: Buy opens long / closes short, Sell opens short / closes long
+  interface OpenPosition {
+    action: "Buy" | "Sell";
+    qty: number;
+    remainingQty: number;
+    price: number;
+    fillTimeIso: string;
+    orderId: string;
+    rowIndex: number;
+  }
+
+  const openPositions = new Map<string, OpenPosition[]>();
+  let tradeSeq = 0;
+
+  for (const fill of fills) {
+    const positions = openPositions.get(fill.contract) ?? [];
+
+    if (positions.length > 0) {
+      const open = positions[0];
+      const isClosing =
+        (open.action === "Buy" && fill.action === "Sell") ||
+        (open.action === "Sell" && fill.action === "Buy");
+
+      if (isClosing) {
+        const matchedQty = Math.min(open.remainingQty, fill.qty);
+        open.remainingQty -= matchedQty;
+
+        // Remaining fill qty after closing this position
+        let remainingFillQty = fill.qty - matchedQty;
+
+        // Determine direction: if open was Buy → long; if open was Sell → short
+        const direction: Direction = open.action === "Buy" ? "long" : "short";
+        const entryPrice = open.price;
+        const exitPrice = fill.price;
+        const entryTime = open.fillTimeIso;
+        const exitTime = fill.fillTimeIso;
+        tradeSeq++;
+
+        // Calculate P&L from price difference using contract multiplier
+        const mult = getMultiplier(fill.contract);
+        let pnl: number | null = null;
+        if (mult !== null) {
+          const points = direction === "long" ? exitPrice - entryPrice : entryPrice - exitPrice;
+          pnl = points * mult * matchedQty;
+        }
+
+        const ref = `tv-orders-${open.orderId}-${fill.orderId}-${tradeSeq}`;
+
+        const input = applyBounds({
+          ...emptyTradeInput(),
+          instrument: fill.contract.toUpperCase(),
+          direction,
+          entry_price: entryPrice,
+          exit_price: exitPrice,
+          quantity: matchedQty,
+          entry_time: entryTime,
+          exit_time: exitTime,
+          pnl,
+          fees: 0,
+          market_session: guessSession(entryTime),
+        });
+
+        trades.push({ input, importRef: ref, source: "tradovate_orders", warnings: [] });
+
+        // Remove fully matched position
+        if (open.remainingQty <= 0) {
+          positions.shift();
+        }
+
+        // If fill still has remaining qty, it may close more positions or open a new one
+        if (remainingFillQty > 0 && positions.length > 0) {
+          // Recursively process remaining: update fill qty and re-process
+          // We do this by creating a synthetic fill for the remaining qty
+          const nextOpen = positions[0];
+          const nextIsClosing =
+            (nextOpen.action === "Buy" && fill.action === "Sell") ||
+            (nextOpen.action === "Sell" && fill.action === "Buy");
+
+          if (nextIsClosing) {
+            // Process remaining against next position — we'll handle one more level
+            const nextMatched = Math.min(nextOpen.remainingQty, remainingFillQty);
+            nextOpen.remainingQty -= nextMatched;
+            remainingFillQty -= nextMatched;
+
+            const nextDirection: Direction = nextOpen.action === "Buy" ? "long" : "short";
+            tradeSeq++;
+            const nextPnl = mult !== null
+              ? (nextDirection === "long" ? fill.price - nextOpen.price : nextOpen.price - fill.price) * mult * nextMatched
+              : null;
+
+            const nextRef = `tv-orders-${nextOpen.orderId}-${fill.orderId}-${tradeSeq}`;
+            const nextInput = applyBounds({
+              ...emptyTradeInput(),
+              instrument: fill.contract.toUpperCase(),
+              direction: nextDirection,
+              entry_price: nextOpen.price,
+              exit_price: fill.price,
+              quantity: nextMatched,
+              entry_time: nextOpen.fillTimeIso,
+              exit_time: fill.fillTimeIso,
+              pnl: nextPnl,
+              fees: 0,
+              market_session: guessSession(nextOpen.fillTimeIso),
+            });
+
+            trades.push({ input: nextInput, importRef: nextRef, source: "tradovate_orders", warnings: [] });
+
+            if (nextOpen.remainingQty <= 0) {
+              positions.shift();
+            }
+          }
+        }
+
+        // Any remaining fill qty opens a new position
+        if (remainingFillQty > 0) {
+          positions.push({
+            action: fill.action,
+            qty: remainingFillQty,
+            remainingQty: remainingFillQty,
+            price: fill.price,
+            fillTimeIso: fill.fillTimeIso,
+            orderId: fill.orderId,
+            rowIndex: fill.rowIndex,
+          });
+        }
+
+        if (positions.length === 0) openPositions.delete(fill.contract);
+        else openPositions.set(fill.contract, positions);
+        continue;
+      }
+    }
+
+    // No closing match — open a new position
+    positions.push({
+      action: fill.action,
+      qty: fill.qty,
+      remainingQty: fill.qty,
+      price: fill.price,
+      fillTimeIso: fill.fillTimeIso,
+      orderId: fill.orderId,
+      rowIndex: fill.rowIndex,
+    });
+    openPositions.set(fill.contract, positions);
+  }
+
+  // Report unclosed positions as errors
+  for (const [contract, positions] of openPositions) {
+    for (const pos of positions) {
+      if (pos.remainingQty > 0) {
+        errors.push(`Unclosed ${pos.action} of ${pos.remainingQty} ${contract} (order ${pos.orderId}) — no matching close found, skipped.`);
+      }
+    }
+  }
+
+  const canceledCount = dataRows.length - fills.length;
+  if (canceledCount > 0 && trades.length > 0) {
+    errors.push(`${canceledCount} non-filled order${canceledCount === 1 ? "" : "s"} (canceled/rejected) were skipped.`);
+  }
+
+  return { trades, errors, totalRows: dataRows.length };
+}
+
+/* ------------------------------------------------------------------ */
 /* Parser registry                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -608,7 +870,13 @@ export const PLATFORM_PARSERS: Record<ImportSource, PlatformParser> = {
   tradovate: {
     source: "tradovate",
     label: "Tradovate",
-    fileNameHint: "tradovate_trades.csv",
+    fileNameHint: "tradovate_performance.csv",
     parse: parseTradovate,
+  },
+  tradovate_orders: {
+    source: "tradovate_orders",
+    label: "Tradovate Orders",
+    fileNameHint: "tradovate_orders.csv",
+    parse: parseTradovateOrders,
   },
 };
