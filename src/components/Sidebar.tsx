@@ -72,6 +72,16 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
         </p>
       </div>
 
+      {demoActive && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-warn-500/40 bg-warn-500/10 px-3 py-2.5">
+          <AlertTriangle size={14} className="flex-shrink-0 text-warn-500" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-warn-500">Demo Data</p>
+            <p className="text-[10px] leading-tight text-base-400">Sample trades — not real performance</p>
+          </div>
+        </div>
+      )}
+
       <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-3">
         {navItems.map((item) => {
           const active = current === item.id;
@@ -99,16 +109,6 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
           <MessageSquare size={15} /> Send feedback
         </button>
       </nav>
-
-      {demoActive && (
-        <div className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-warn-500/40 bg-warn-500/10 px-3 py-2.5">
-          <AlertTriangle size={14} className="flex-shrink-0 text-warn-500" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-warn-500">Demo Data</p>
-            <p className="text-[10px] leading-tight text-base-400">Sample trades — not real performance</p>
-          </div>
-        </div>
-      )}
 
       <div className="mx-3 mb-3 border-t border-base-800 pt-3">
         <div className="mb-2 flex items-center justify-center">
