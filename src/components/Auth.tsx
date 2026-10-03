@@ -50,6 +50,47 @@ function friendlyAuthError(e: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+const DEMO_CREDENTIALS_KEY = "edgepilot.demo.credentials";
+
+/** Random URL-safe string from the platform CSPRNG. */
+function randomToken(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Per-visitor demo credentials. Each browser provisions its OWN demo account,
+ * so one visitor's sample journal is never readable by another, and no demo
+ * password is hardcoded into the shipped bundle. Reused on return visits so a
+ * visitor comes back to the same sandbox.
+ */
+function getOrCreateDemoCredentials(): { email: string; password: string } {
+  try {
+    const stored = localStorage.getItem(DEMO_CREDENTIALS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (typeof parsed?.email === "string" && typeof parsed?.password === "string") {
+        return { email: parsed.email, password: parsed.password };
+      }
+    }
+  } catch {
+    // Unreadable or malformed entry: fall through and mint a fresh one.
+  }
+
+  const creds = {
+    email: `demo-${randomToken(8)}@demo.edgepilot.app`,
+    // 32 hex chars of CSPRNG output: not guessable, never shipped in the bundle.
+    password: `Demo-${randomToken(16)}`,
+  };
+  try {
+    localStorage.setItem(DEMO_CREDENTIALS_KEY, JSON.stringify(creds));
+  } catch {
+    // Private-browsing or storage-disabled: the sandbox simply won't persist.
+  }
+  return creds;
+}
+
 export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => void }) {
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
@@ -62,13 +103,17 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
     setLoading(true);
     setError(null);
     setInfo(null);
-    const DEMO_EMAIL = "demo@edgepilot.app";
-    const DEMO_PASS = "EdgePilot2024!";
     try {
-      // Attempt sign-in first (fast path for returning visitors)
+      // Each visitor gets their OWN isolated demo account. A single shared demo
+      // account would mean every visitor signs in as the same user, so anything
+      // one person logged while exploring would be readable and deletable by
+      // everyone else — and its password would have to ship in this bundle.
+      const creds = getOrCreateDemoCredentials();
+
+      // Returning visitor: their sandbox already exists.
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: DEMO_EMAIL,
-        password: DEMO_PASS,
+        email: creds.email,
+        password: creds.password,
       });
       if (!signInError && signInData.user) {
         if (!(await hasDemoData())) await loadDemoData();
@@ -76,29 +121,26 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
         return;
       }
 
-      // Account doesn't exist yet — create it (email confirmation is OFF in project settings)
+      // First visit: provision the sandbox (email confirmation is off).
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: DEMO_EMAIL,
-        password: DEMO_PASS,
+        email: creds.email,
+        password: creds.password,
       });
       if (signUpError) throw signUpError;
 
-      // If signUp returned a session the user is confirmed immediately
-      if (signUpData.session?.user) {
-        if (!(await hasDemoData())) await loadDemoData();
-        onAuthenticated(signUpData.session.user);
-        return;
+      let demoUser = signUpData.session?.user ?? null;
+      if (!demoUser) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: creds.email,
+          password: creds.password,
+        });
+        if (error) throw error;
+        demoUser = data.user;
       }
 
-      // Email confirmation is off so we should now be able to sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: DEMO_EMAIL,
-        password: DEMO_PASS,
-      });
-      if (error) throw error;
-      if (data.user) {
+      if (demoUser) {
         if (!(await hasDemoData())) await loadDemoData();
-        onAuthenticated(data.user);
+        onAuthenticated(demoUser);
       }
     } catch (e) {
       console.error("Demo sign-in failed", e);

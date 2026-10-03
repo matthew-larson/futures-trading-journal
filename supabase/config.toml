@@ -12,6 +12,3 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
-
-[functions.ensure-demo-account]
-verify_jwt = false
