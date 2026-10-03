@@ -360,7 +360,7 @@ export function Auth({ onAuthenticated, initialMode = "signin" }: { onAuthentica
                 )}
               </div>
 
-              {mode === "signin" && (
+              {(mode === "signin" || mode === "signup") && (
                 <button
                   onClick={handleDemoSignIn}
                   disabled={loading}
