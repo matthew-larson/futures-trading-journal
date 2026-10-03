@@ -1,3 +1,5 @@
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -19,6 +21,25 @@ Deno.serve(async (req: Request) => {
   try {
     if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
+    // The project's anon key is itself a valid JWT published in the browser
+    // bundle, so platform-level verification alone would let an anonymous
+    // caller through. Resolve the token to a real end user instead.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return jsonResponse({ error: "Authentication required." }, 401);
+    }
+
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!
+    );
+    const { data: authUser, error: authUserError } = await authClient.auth.getUser(
+      authHeader.replace("Bearer ", "").trim()
+    );
+    if (authUserError || !authUser?.user) {
+      return jsonResponse({ error: "Authentication required." }, 401);
+    }
+
     const body: unknown = await req.json();
     if (typeof body !== "object" || body === null) return jsonResponse({ error: "Invalid request" }, 400);
 
@@ -29,6 +50,27 @@ Deno.serve(async (req: Request) => {
     }
     if (!["http:", "https:"].includes(originUrl.protocol) || originUrl.username || originUrl.password) {
       return jsonResponse({ error: "Invalid checkout origin" }, 400);
+    }
+
+    // Durable per-account rate limit: a rolling hour of at most 10 checkout
+    // sessions, claimed atomically so concurrent requests cannot both pass.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (serviceKey) {
+      const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+      const { data: allowed, error: limitError } = await adminClient.rpc(
+        "claim_donation_checkout_slot",
+        { p_user_id: authUser.user.id, p_max_per_hour: 10 }
+      );
+      if (limitError) {
+        console.error("Donation rate limit check failed", limitError);
+        return jsonResponse({ error: "Unable to start checkout" }, 500);
+      }
+      if (allowed === false) {
+        return jsonResponse(
+          { error: "Too many checkout attempts. Please wait a few minutes and try again." },
+          429
+        );
+      }
     }
 
     const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
