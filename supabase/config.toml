@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.coach-chat]
 verify_jwt = true
+
+[functions.create-donation-checkout]
+verify_jwt = true

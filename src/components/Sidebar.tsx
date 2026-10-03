@@ -1,6 +1,6 @@
-import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut } from "lucide-react";
+import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut, Heart } from "lucide-react";
 
-export type Page = "dashboard" | "trades" | "rules" | "analytics" | "strategy" | "coach" | "discipline" | "import" | "edge" | "plan" | "feedback-admin";
+export type Page = "dashboard" | "trades" | "rules" | "analytics" | "strategy" | "coach" | "discipline" | "import" | "edge" | "plan" | "support" | "feedback-admin";
 
 interface SidebarProps {
   current: Page;
@@ -26,6 +26,7 @@ const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "discipline", label: "Discipline", icon: <ShieldCheck size={20} /> },
   { id: "import", label: "Import", icon: <Download size={20} /> },
   { id: "rules", label: "Rules", icon: <Ruler size={20} /> },
+  { id: "support", label: "Support development", icon: <Heart size={20} /> },
 ];
 
 export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, onGiveFeedback, mobileOpen, onCloseMobile, userEmail, onSignOut }: SidebarProps) {
@@ -62,11 +63,13 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
               onClick={() => onNavigate(item.id)}
               className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 active
-                  ? "bg-base-800 text-base-50 shadow-sm"
+                  ? item.id === "support"
+                    ? "bg-bull-500/10 text-bull-400 shadow-sm"
+                    : "bg-base-800 text-base-50 shadow-sm"
                   : "text-base-400 hover:bg-base-800/60 hover:text-base-200"
               }`}
             >
-              <span className={active ? "text-info-400" : ""}>{item.icon}</span>
+              <span className={active ? (item.id === "support" ? "text-bull-400" : "text-info-400") : ""}>{item.icon}</span>
               {item.label}
             </button>
           );

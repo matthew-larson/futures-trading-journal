@@ -26,6 +26,7 @@ import { Modal } from "@/components/Modal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { FeedbackAdmin } from "@/components/FeedbackAdmin";
+import { Support } from "@/components/Support";
 
 export default function App() {
   const { user, authState, signOut } = useAuth();
@@ -302,7 +303,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">
         <div className="mx-auto max-w-6xl px-6 py-8">
           {/* Page header with action */}
-          {page !== "rules" && !viewingTradeId && page !== "import" && page !== "edge" && page !== "plan" && (
+          {page !== "rules" && !viewingTradeId && page !== "import" && page !== "edge" && page !== "plan" && page !== "support" && (
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-bold text-base-50">
@@ -406,6 +407,7 @@ export default function App() {
                 />
               )}
               {page === "discipline" && <DisciplineComponent trades={trades} onImportTrades={goToImport} />}
+              {page === "support" && <Support />}
               {page === "feedback-admin" && (
                 <FeedbackAdmin onBack={() => setPage("dashboard")} />
               )}
