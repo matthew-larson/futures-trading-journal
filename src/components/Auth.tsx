@@ -62,6 +62,11 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
     setError(null);
     setInfo(null);
     try {
+      const { error: setupError } = await supabase.functions.invoke("ensure-demo-account", {
+        method: "POST",
+      });
+      if (setupError) throw setupError;
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: "demo@edgepilot.app",
         password: "EdgePilot2024!",
