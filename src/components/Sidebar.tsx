@@ -54,7 +54,34 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
         )}
       </div>
 
-      <nav className="mt-2 flex-1 px-3">
+      <div className="mx-3 rounded-xl border border-base-800 bg-base-850 p-4">
+        <p className="text-xs font-medium uppercase tracking-wider text-base-400">Net P&L</p>
+        <p
+          className={`mt-1 text-xl font-bold tabular ${
+            pnlPositive ? "text-bull-500" : netPnl < 0 ? "text-bear-500" : "text-base-200"
+          }`}
+        >
+          {pnlPositive ? "+" : ""}
+          {netPnl.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </p>
+        <p className="mt-1 text-xs text-base-400">
+          {tradeCount} {tradeCount === 1 ? "trade" : "trades"} logged
+        </p>
+      </div>
+
+      <div className="mx-3 mt-3">
+        <button
+          onClick={onGiveFeedback}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 px-3 py-2.5 text-xs font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 hover:text-info-200"
+        >
+          <MessageSquare size={15} /> Send feedback
+        </button>
+      </div>
+
+      <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-3">
         {navItems.map((item) => {
           const active = current === item.id;
           return (
@@ -86,34 +113,8 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
         </div>
       )}
 
-      <div className="m-3 rounded-xl border border-base-800 bg-base-850 p-4">
-        <p className="text-xs font-medium uppercase tracking-wider text-base-400">
-          Net P&L
-        </p>
-        <p
-          className={`mt-1 text-xl font-bold tabular ${
-            pnlPositive ? "text-bull-500" : netPnl < 0 ? "text-bear-500" : "text-base-200"
-          }`}
-        >
-          {pnlPositive ? "+" : ""}
-          {netPnl.toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </p>
-        <p className="mt-1 text-xs text-base-400">
-          {tradeCount} {tradeCount === 1 ? "trade" : "trades"} logged
-        </p>
-      </div>
-
       <div className="mx-3 mb-3 border-t border-base-800 pt-3">
-        <button
-          onClick={onGiveFeedback}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 px-3 py-2.5 text-xs font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 hover:text-info-200"
-        >
-          <MessageSquare size={15} /> Send feedback
-        </button>
-        <div className="flex items-center justify-center">
+        <div className="mb-2 flex items-center justify-center">
           <button
             onClick={() => onNavigate("feedback-admin")}
             className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
