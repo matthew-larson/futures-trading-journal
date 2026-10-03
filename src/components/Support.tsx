@@ -4,6 +4,16 @@ import { supabase } from "@/lib/supabase";
 
 const presetAmounts = [5, 10, 25, 50];
 
+const GENERIC_CHECKOUT_ERROR = "We couldn't start checkout. Please try again.";
+
+/**
+ * A message that was deliberately written to be shown to a person: either one of
+ * this component's own sentences, or the fixed `error` string the checkout
+ * function returns. Raw exceptions (network failures, JSON parse errors) are NOT
+ * this type, so the handler below can refuse to render their internal text.
+ */
+class CheckoutMessage extends Error {}
+
 export function Support() {
   const [selectedAmount, setSelectedAmount] = useState(10);
   const [customAmount, setCustomAmount] = useState("");
@@ -34,7 +44,7 @@ export function Support() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Please sign in again before donating.");
+      if (!accessToken) throw new CheckoutMessage("Please sign in again before donating.");
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-donation-checkout`, {
         method: "POST",
@@ -50,13 +60,20 @@ export function Support() {
       if (!response.ok || typeof body !== "object" || body === null || !("url" in body) || typeof body.url !== "string") {
         const message = typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
           ? body.error
-          : "We couldn't start checkout. Please try again.";
-        throw new Error(message);
+          : GENERIC_CHECKOUT_ERROR;
+        throw new CheckoutMessage(message);
       }
 
       window.location.assign(body.url);
     } catch (donationError) {
-      setError(donationError instanceof Error ? donationError.message : "We couldn't start checkout. Please try again.");
+      // Only ever render a sentence that was written for a user. An arbitrary
+      // exception message is internal detail, so it is logged and replaced.
+      if (donationError instanceof CheckoutMessage) {
+        setError(donationError.message);
+      } else {
+        console.error("Donation checkout failed", donationError);
+        setError(GENERIC_CHECKOUT_ERROR);
+      }
       setSubmitting(false);
     }
   };
