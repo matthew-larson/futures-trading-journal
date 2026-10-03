@@ -26,6 +26,7 @@ import {
 } from "@/lib/importCsv";
 import type { TradeInput } from "@/lib/types";
 import { loadDemoData, resetDemoData, hasDemoData, DEMO_IMPORT_SOURCE } from "@/lib/demoData";
+import { trackCsvImported } from "@/lib/posthog";
 
 interface ImportPageProps {
   onTradesChanged: () => void;
@@ -289,6 +290,9 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
     setPendingTrades([]);
     setParsedResult(null);
     onTradesChanged();
+    if (imported > 0) {
+      trackCsvImported(selectedPlatform ?? "unknown");
+    }
     if (imported >= 5 && onEdgeDiscovery) {
       onEdgeDiscovery(imported);
     }
@@ -357,6 +361,9 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: Imp
         errors: data.errors ?? [],
       });
       onTradesChanged();
+      if ((data.imported ?? 0) > 0) {
+        trackCsvImported("tradovate_api");
+      }
       if ((data.imported ?? 0) >= 5 && onEdgeDiscovery) {
         onEdgeDiscovery(data.imported);
       }

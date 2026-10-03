@@ -28,10 +28,24 @@ import { FeedbackModal } from "@/components/FeedbackModal";
 import { FeedbackAdmin } from "@/components/FeedbackAdmin";
 import { Support } from "@/components/Support";
 import { Settings } from "@/components/Settings";
+import { identifyUser, resetUser, trackTradeLogged, trackCsvImported, trackAiQuestionAsked } from "@/lib/posthog";
 
 export default function App() {
   const { user, authState, signOut } = useAuth();
   const [page, setPage] = useState<Page>("dashboard");
+
+  useEffect(() => {
+    if (authState === "authenticated" && user) {
+      identifyUser(user.id);
+    } else if (authState === "unauthenticated") {
+      resetUser();
+    }
+  }, [authState, user]);
+
+  const handleSignOut = useCallback(async () => {
+    resetUser();
+    await signOut();
+  }, [signOut]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [rules, setRules] = useState<TradingRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +138,7 @@ export default function App() {
       await loadData();
       setFormOpen(false);
       setEditingTradeId(null);
+      trackTradeLogged();
     } catch (e) {
       console.error("Failed to save trade", e);
       setSaveError("We couldn't save this trade. Please try again.");
@@ -298,7 +313,7 @@ export default function App() {
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
         userEmail={user.email ?? null}
-        onSignOut={signOut}
+        onSignOut={handleSignOut}
       />
 
       <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">

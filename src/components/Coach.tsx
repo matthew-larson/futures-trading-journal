@@ -33,6 +33,7 @@ import {
   clearConversations,
   type ConversationRecord,
 } from "@/lib/coachMemory";
+import { trackAiQuestionAsked } from "@/lib/posthog";
 
 interface CoachProps {
   trades: Trade[];
@@ -158,6 +159,7 @@ export function Coach({ trades, rules, onImportTrades, onViewSupportingTrades }:
       setInput("");
       setLoading(true);
       setError(null);
+      trackAiQuestionAsked();
 
       try {
         const { data: session } = await supabase.auth.getSession();
