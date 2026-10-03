@@ -13,13 +13,10 @@ import {
   CheckCircle2,
   Menu,
   X,
-  MessageSquare,
   Zap,
   Target,
-  Award,
   LineChart,
   Activity,
-  Flame,
 } from "lucide-react";
 
 interface LandingPageProps {
@@ -160,118 +157,12 @@ export function LandingPage({ onGetStarted, onTryDemo, onSignIn, demoLoading }: 
         </div>
       )}
 
-      {/* ===== Hero ===== */}
-      <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-        {/* Background glow */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-info-600/10 blur-[120px]" />
-          <div className="absolute right-0 top-40 h-[300px] w-[400px] rounded-full bg-bull-500/5 blur-[100px]" />
-          <div className="absolute left-0 top-60 h-[300px] w-[300px] rounded-full bg-accent-500/5 blur-[100px]" />
-        </div>
-        {/* Grid pattern */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(var(--color-base-500) 1px, transparent 1px), linear-gradient(90deg, var(--color-base-500) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-
-        <div className="relative mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-info-500/20 bg-info-500/10 px-4 py-1.5 text-xs font-medium text-info-300">
-              <Sparkles size={13} />
-              AI-powered futures trading journal
-            </div>
-
-            <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-base-50 sm:text-5xl md:text-6xl">
-              Stop guessing.
-              <br />
-              <span className="bg-gradient-to-r from-info-400 via-info-500 to-info-600 bg-clip-text text-transparent">
-                Start trading with an edge.
-              </span>
-            </h1>
-
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-base-300">
-              EdgePilot turns your trade history into a personal command center. Log trades,
-              discover your real edge, get an AI coach that remembers every decision, and
-              build the discipline that separates profitable traders from the rest.
-            </p>
-
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <button
-                onClick={onGetStarted}
-                className="flex items-center gap-2 rounded-xl bg-info-600 px-7 py-3.5 text-base font-semibold text-white shadow-xl shadow-info-600/20 transition-all hover:bg-info-500 hover:shadow-info-500/30"
-              >
-                Start Free <ArrowRight size={18} />
-              </button>
-              <button
-                onClick={onTryDemo}
-                disabled={demoLoading}
-                className="flex items-center gap-2 rounded-xl border border-info-500/30 bg-info-500/10 px-7 py-3.5 text-base font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 disabled:opacity-60"
-              >
-                {demoLoading ? (
-                  <>
-                    <Activity size={18} className="animate-pulse" /> Loading demo...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={18} /> Try the demo
-                  </>
-                )}
-              </button>
-            </div>
-
-            <p className="mt-4 text-sm text-base-500">
-              No credit card required. Your data stays private to your account.
-            </p>
-          </div>
-
-          {/* Hero dashboard preview */}
-          <div className="relative mt-16 mx-auto max-w-5xl">
-            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-info-600/20 via-transparent to-bull-500/10 blur-2xl" />
-            <div className="relative rounded-2xl border border-base-700 bg-base-900 p-2 shadow-2xl">
-              <HeroPreview />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== Stats bar ===== */}
-      <section
-        ref={(el) => { sectionRefs.current[0] = el; }}
-        data-idx="0"
-        className="border-y border-base-800 bg-base-900/40 py-12"
-      >
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-            {[
-              { value: "150+", label: "Trades in demo mode" },
-              { value: "10", label: "Discipline dimensions tracked" },
-              { value: "100%", label: "Private to your account" },
-              { value: "0", label: "Setup cost — start free" },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className={`text-center transition-all duration-700 ${
-                  isSectionVisible(0) ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-                }`}
-                style={{ transitionDelay: `${i * 80}ms` }}
-              >
-                <div className="text-3xl font-bold text-info-400 sm:text-4xl">{stat.value}</div>
-                <div className="mt-1 text-sm text-base-400">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ===== Features grid ===== */}
       <section
         id="features"
         ref={(el) => { sectionRefs.current[1] = el; }}
         data-idx="1"
-        className="py-20 sm:py-28"
+        className="pt-32 py-20 sm:pt-36 sm:py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <SectionHeader
@@ -685,110 +576,6 @@ function StepRow({ step, isLast, visible, delay }: { step: StepDef; visible: boo
           <h3 className="text-lg font-semibold text-base-50">{step.title}</h3>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-base-400">{step.description}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ===== Hero preview (mini dashboard mock) ===== */
-
-function HeroPreview() {
-  const equityPoints = [
-    { y: 60 }, { y: 52 }, { y: 68 }, { y: 58 }, { y: 72 },
-    { y: 64 }, { y: 80 }, { y: 74 }, { y: 88 }, { y: 82 },
-    { y: 92 }, { y: 86 }, { y: 95 },
-  ];
-  const maxVal = 100;
-  const minVal = 40;
-  const range = maxVal - minVal;
-  const w = 100;
-  const h = 100;
-  const pathD = equityPoints
-    .map((p, i) => {
-      const x = (i / (equityPoints.length - 1)) * w;
-      const y = h - ((p.y - minVal) / range) * h;
-      return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
-  const areaD = `${pathD} L ${w} ${h} L 0 ${h} Z`;
-
-  return (
-    <div className="rounded-xl bg-base-850 p-5">
-      {/* Top bar */}
-      <div className="mb-5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-info-500 to-info-600 text-white">
-            <TrendingUp size={16} />
-          </div>
-          <span className="text-sm font-bold text-base-50">EdgePilot</span>
-          <span className="ml-2 rounded-md bg-warn-500/10 px-2 py-0.5 text-[10px] font-semibold text-warn-500">Demo</span>
-        </div>
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-base-600" />
-          <div className="h-2.5 w-2.5 rounded-full bg-base-600" />
-          <div className="h-2.5 w-2.5 rounded-full bg-base-600" />
-        </div>
-      </div>
-
-      {/* Metrics row */}
-      <div className="mb-4 grid grid-cols-4 gap-2">
-        {[
-          { label: "Net P&L", value: "+$4,280", tone: "text-bull-500" },
-          { label: "Win Rate", value: "62%", tone: "text-bull-500" },
-          { label: "Profit Factor", value: "1.84", tone: "text-bull-500" },
-          { label: "Discipline", value: "78/100", tone: "text-accent-400" },
-        ].map((m) => (
-          <div key={m.label} className="rounded-lg border border-base-700 bg-base-800/50 p-3">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-base-500">{m.label}</div>
-            <div className={`mt-1 text-sm font-bold tabular ${m.tone}`}>{m.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Equity curve */}
-      <div className="mb-4 rounded-lg border border-base-700 bg-base-800/50 p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-semibold text-base-300">Equity Curve</span>
-          <span className="text-xs font-bold tabular text-bull-500">+$4,280</span>
-        </div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-24 w-full">
-          <defs>
-            <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#16c784" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#16c784" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={areaD} fill="url(#heroGrad)" />
-          <path d={pathD} fill="none" stroke="#16c784" strokeWidth="0.8" strokeLinejoin="round" strokeLinecap="round" />
-        </svg>
-      </div>
-
-      {/* Bottom row: insights + recent */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-base-700 bg-base-800/50 p-3">
-          <div className="mb-2 flex items-center gap-1.5">
-            <Sparkles size={12} className="text-info-400" />
-            <span className="text-[10px] font-semibold text-base-300">Top Insight</span>
-          </div>
-          <p className="text-[11px] leading-relaxed text-base-400">
-            Your win rate in the London session is 71% vs 48% in the afternoon.
-          </p>
-        </div>
-        <div className="rounded-lg border border-base-700 bg-base-800/50 p-3">
-          <div className="mb-2 flex items-center gap-1.5">
-            <Award size={12} className="text-accent-400" />
-            <span className="text-[10px] font-semibold text-base-300">Achievement</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-500/15 text-accent-400">
-              <Flame size={14} />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-base-100">3-Win Streak</div>
-              <div className="text-[9px] text-base-500">Gold tier unlocked</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
