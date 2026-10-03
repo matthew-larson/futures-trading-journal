@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { hasDemoData, loadDemoData } from "@/lib/demoData";
 import { TrendingUp, Loader2, AlertCircle, Mail, Lock, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -70,6 +71,7 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
         password: DEMO_PASS,
       });
       if (!signInError && signInData.user) {
+        if (!(await hasDemoData())) await loadDemoData();
         onAuthenticated(signInData.user);
         return;
       }
@@ -83,6 +85,7 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
 
       // If signUp returned a session the user is confirmed immediately
       if (signUpData.session?.user) {
+        if (!(await hasDemoData())) await loadDemoData();
         onAuthenticated(signUpData.session.user);
         return;
       }
@@ -93,7 +96,10 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
         password: DEMO_PASS,
       });
       if (error) throw error;
-      if (data.user) onAuthenticated(data.user);
+      if (data.user) {
+        if (!(await hasDemoData())) await loadDemoData();
+        onAuthenticated(data.user);
+      }
     } catch (e) {
       console.error("Demo sign-in failed", e);
       setError(friendlyAuthError(e));
