@@ -61,15 +61,36 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
     setLoading(true);
     setError(null);
     setInfo(null);
+    const DEMO_EMAIL = "demo@edgepilot.app";
+    const DEMO_PASS = "EdgePilot2024!";
     try {
-      const { error: setupError } = await supabase.functions.invoke("ensure-demo-account", {
-        method: "POST",
+      // Attempt sign-in first (fast path for returning visitors)
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: DEMO_EMAIL,
+        password: DEMO_PASS,
       });
-      if (setupError) throw setupError;
+      if (!signInError && signInData.user) {
+        onAuthenticated(signInData.user);
+        return;
+      }
 
+      // Account doesn't exist yet — create it (email confirmation is OFF in project settings)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: DEMO_EMAIL,
+        password: DEMO_PASS,
+      });
+      if (signUpError) throw signUpError;
+
+      // If signUp returned a session the user is confirmed immediately
+      if (signUpData.session?.user) {
+        onAuthenticated(signUpData.session.user);
+        return;
+      }
+
+      // Email confirmation is off so we should now be able to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: "demo@edgepilot.app",
-        password: "EdgePilot2024!",
+        email: DEMO_EMAIL,
+        password: DEMO_PASS,
       });
       if (error) throw error;
       if (data.user) onAuthenticated(data.user);
