@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { TrendingUp, Loader2, AlertCircle, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Mail, Lock, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 type AuthMode = "signin" | "signup" | "forgot" | "check-email";
@@ -56,6 +56,25 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  const handleDemoSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: "demo@edgepilot.app",
+        password: "EdgePilot2024!",
+      });
+      if (error) throw error;
+      if (data.user) onAuthenticated(data.user);
+    } catch (e) {
+      console.error("Demo sign-in failed", e);
+      setError(friendlyAuthError(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (mode !== "check-email") {
@@ -266,6 +285,16 @@ export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => voi
                   </p>
                 )}
               </div>
+
+              {mode === "signin" && (
+                <button
+                  onClick={handleDemoSignIn}
+                  disabled={loading}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 py-2.5 text-sm font-medium text-info-400 transition-colors hover:bg-info-500/20 disabled:opacity-60"
+                >
+                  <Sparkles size={16} /> Try the demo account
+                </button>
+              )}
             </>
           )}
         </div>
