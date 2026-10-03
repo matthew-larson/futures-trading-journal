@@ -41,6 +41,14 @@ html, body, #root {
   height: 100%;
 }
 
+button:not(:disabled),
+a[href],
+[role="button"]:not(:disabled),
+label[for],
+summary {
+  cursor: pointer;
+}
+
 body {
   background-color: var(--color-base-950);
   color: var(--color-base-100);
