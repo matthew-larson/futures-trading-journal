@@ -1,6 +1,6 @@
-import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut, Heart } from "lucide-react";
+import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut, Heart, Settings as SettingsIcon } from "lucide-react";
 
-export type Page = "dashboard" | "trades" | "rules" | "analytics" | "strategy" | "coach" | "discipline" | "import" | "edge" | "plan" | "support" | "feedback-admin";
+export type Page = "dashboard" | "trades" | "rules" | "analytics" | "strategy" | "coach" | "discipline" | "import" | "edge" | "plan" | "support" | "feedback-admin" | "settings";
 
 interface SidebarProps {
   current: Page;
@@ -27,6 +27,7 @@ const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "import", label: "Import", icon: <Download size={20} /> },
   { id: "rules", label: "Rules", icon: <Ruler size={20} /> },
   { id: "support", label: "Support Development", icon: <Heart size={20} /> },
+  { id: "settings", label: "Settings", icon: <SettingsIcon size={20} /> },
 ];
 
 export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, onGiveFeedback, mobileOpen, onCloseMobile, userEmail, onSignOut }: SidebarProps) {

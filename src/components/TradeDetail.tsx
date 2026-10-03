@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { Trade, TradingRule, AiAnalysis, RiskRating } from "@/lib/types";
 import { supabase, STORAGE_BUCKET } from "@/lib/supabase";
+import { AiDisclaimer } from "@/components/Disclaimer";
 import { complianceScore } from "@/lib/stats";
 import { formatCurrency, formatDateTimeET, formatDuration } from "@/lib/format";
 import {
@@ -355,7 +356,8 @@ export function TradeDetail({ trade, rules, onBack, onEdit, onDelete }: TradeDet
             )}
           </div>
 
-          {/* Rule compliance breakdown */}
+          <AiDisclaimer />
+
           {(followedRules.length > 0 || violatedRules.length > 0) && (
             <div className="rounded-xl border border-base-700 bg-base-850 p-5">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-base-200">

@@ -25,6 +25,7 @@ import type { Trade, TradingRule } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import type { TraderProfile } from "@/lib/traderProfile";
 import { InsightFeedback } from "@/components/InsightFeedback";
+import { AiDisclaimer } from "@/components/Disclaimer";
 import {
   ensureFreshProfile,
   loadRecentConversations,
@@ -369,6 +370,7 @@ export function Coach({ trades, rules, onImportTrades, onViewSupportingTrades }:
         <p className="mt-2 text-center text-xs text-base-500">
           Press Enter to send · Shift+Enter for a new line
         </p>
+        <AiDisclaimer className="mt-2" />
       </div>
     </div>
   );
