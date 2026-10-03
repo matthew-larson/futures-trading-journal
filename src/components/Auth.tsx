@@ -91,8 +91,8 @@ function getOrCreateDemoCredentials(): { email: string; password: string } {
   return creds;
 }
 
-export function Auth({ onAuthenticated }: { onAuthenticated: (user: User) => void }) {
-  const [mode, setMode] = useState<AuthMode>("signin");
+export function Auth({ onAuthenticated, initialMode = "signin" }: { onAuthenticated: (user: User) => void; initialMode?: AuthMode }) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

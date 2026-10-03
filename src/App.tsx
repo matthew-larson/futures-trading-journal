@@ -3,6 +3,9 @@ import { Plus, Loader2, AlertCircle, TrendingUp, Menu } from "lucide-react";
 import { supabase, STORAGE_BUCKET } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Auth } from "@/components/Auth";
+import { LandingPage } from "@/components/LandingPage";
+import { hasDemoData, loadDemoData, DEMO_IMPORT_SOURCE } from "@/lib/demoData";
+import type { User } from "@supabase/supabase-js";
 import type { Trade, TradingRule, TradeInput, RuleInput } from "@/lib/types";
 import { computeStats } from "@/lib/stats";
 import { scoreTradeDiscipline } from "@/lib/discipline";
@@ -18,7 +21,6 @@ import { ImportPage } from "@/components/ImportPage";
 import { EdgeDiscovery } from "@/components/EdgeDiscovery";
 import { EdgeDiscoveryReport } from "@/components/EdgeDiscoveryReport";
 import { persistDiscoveredPatterns } from "@/lib/edgePersistence";
-import { hasDemoData, DEMO_IMPORT_SOURCE } from "@/lib/demoData";
 import { TomorrowsPlan } from "@/components/TomorrowsPlan";
 import { Coach } from "@/components/Coach";
 import { Discipline as DisciplineComponent } from "@/components/Discipline";
@@ -30,9 +32,14 @@ import { Support } from "@/components/Support";
 import { Settings } from "@/components/Settings";
 import { identifyUser, resetUser, trackTradeLogged, trackCsvImported, trackAiQuestionAsked } from "@/lib/posthog";
 
+type AuthEntry = "signup" | "signin";
+
 export default function App() {
   const { user, authState, signOut } = useAuth();
   const [page, setPage] = useState<Page>("dashboard");
+  const [showAuth, setShowAuth] = useState(false);
+  const [authEntry, setAuthEntry] = useState<AuthEntry>("signup");
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     if (authState === "authenticated" && user) {
@@ -237,7 +244,79 @@ export default function App() {
   }
 
   if (authState === "unauthenticated" || !user) {
-    return <Auth onAuthenticated={() => {}} />;
+    if (showAuth) {
+      return (
+        <Auth
+          onAuthenticated={() => {}}
+          initialMode={authEntry}
+        />
+      );
+    }
+
+    const handleDemoFromLanding = async () => {
+      setDemoLoading(true);
+      try {
+        const DEMO_CREDENTIALS_KEY = "edgepilot.demo.credentials";
+        let creds: { email: string; password: string } | null = null;
+        try {
+          const stored = localStorage.getItem(DEMO_CREDENTIALS_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (typeof parsed?.email === "string" && typeof parsed?.password === "string") {
+              creds = { email: parsed.email, password: parsed.password };
+            }
+          }
+        } catch {
+          // fall through
+        }
+        if (!creds) {
+          const buf = new Uint8Array(8);
+          crypto.getRandomValues(buf);
+          const rand = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+          const pwBuf = new Uint8Array(16);
+          crypto.getRandomValues(pwBuf);
+          const pwRand = Array.from(pwBuf, (b) => b.toString(16).padStart(2, "0")).join("");
+          creds = { email: `demo-${rand}@demo.edgepilot.app`, password: `Demo-${pwRand}` };
+          try { localStorage.setItem(DEMO_CREDENTIALS_KEY, JSON.stringify(creds)); } catch { /* ok */ }
+        }
+
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: creds.email, password: creds.password,
+        });
+        if (!signInError && signInData.user) {
+          if (!(await hasDemoData())) await loadDemoData();
+          return;
+        }
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: creds.email, password: creds.password,
+        });
+        if (signUpError) throw signUpError;
+        let demoUser: User | null = signUpData.session?.user ?? null;
+        if (!demoUser) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: creds.email, password: creds.password,
+          });
+          if (error) throw error;
+          demoUser = data.user;
+        }
+        if (demoUser) {
+          if (!(await hasDemoData())) await loadDemoData();
+        }
+      } catch (e) {
+        console.error("Demo sign-in failed from landing", e);
+      } finally {
+        setDemoLoading(false);
+      }
+    };
+
+    return (
+      <LandingPage
+        onGetStarted={() => { setAuthEntry("signup"); setShowAuth(true); }}
+        onSignIn={() => { setAuthEntry("signin"); setShowAuth(true); }}
+        onTryDemo={handleDemoFromLanding}
+        demoLoading={demoLoading}
+      />
+    );
   }
 
   // Loading state
