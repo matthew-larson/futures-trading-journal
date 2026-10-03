@@ -1081,6 +1081,53 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Bound the request: without a cap, a caller can post an arbitrarily large
+    // synthetic history and make the analysis engine burn compute on it.
+    const MAX_TRADES = 20000;
+    const MAX_RULES = 500;
+    const MAX_CONVERSATIONS = 50;
+    if (
+      trades.length > MAX_TRADES ||
+      (Array.isArray(rules) && rules.length > MAX_RULES) ||
+      (Array.isArray(conversations) && conversations.length > MAX_CONVERSATIONS)
+    ) {
+      return new Response(
+        JSON.stringify({ error: "That request is too large to analyse." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Durable per-account limit on this route, claimed atomically. Fail closed:
+    // an unmetered analysis endpoint is worse than a brief outage.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceKey) {
+      console.error("coach-chat: service role key is not configured");
+      return new Response(
+        JSON.stringify({ error: "The coach is unavailable right now. Please try again." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const { data: allowed, error: limitError } = await adminClient.rpc("claim_rate_limit_slot", {
+      p_user_id: authUser.user.id,
+      p_action: "coach_chat",
+      p_max: 120,
+      p_window_seconds: 3600,
+    });
+    if (limitError) {
+      console.error("Coach rate limit check failed", limitError);
+      return new Response(
+        JSON.stringify({ error: "The coach is unavailable right now. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (allowed === false) {
+      return new Response(
+        JSON.stringify({ error: "You've reached the hourly coaching limit. Please try again shortly." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const allClosedTradeIds = (trades as TradeRow[])
       .filter((t) => t.exit_time !== null && t.pnl !== null)
       .map((t) => t.id);

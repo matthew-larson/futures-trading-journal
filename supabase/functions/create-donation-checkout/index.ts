@@ -103,7 +103,14 @@ Deno.serve(async (req: Request) => {
     // Durable per-account rate limit: a rolling hour of at most 10 checkout
     // sessions, claimed atomically so concurrent requests cannot both pass.
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (serviceKey) {
+    if (!serviceKey) {
+      // Fail closed: without the service role key the rate limit cannot be
+      // claimed, and an unlimited checkout route against a live Stripe
+      // account is worse than a temporarily unavailable one.
+      console.error("create-donation-checkout: service role key is not configured");
+      return jsonResponse({ error: "Payments are not configured" }, 503);
+    }
+    {
       const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
       const { data: allowed, error: limitError } = await adminClient.rpc(
         "claim_donation_checkout_slot",
