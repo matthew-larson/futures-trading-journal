@@ -107,25 +107,21 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
       </div>
 
       <div className="mx-3 mb-3 border-t border-base-800 pt-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onGiveFeedback}
-              className="flex items-center gap-1.5 text-[11px] font-medium text-base-500 transition-colors hover:text-base-300"
-            >
-              <MessageSquare size={13} /> Feedback
-            </button>
-            <span className="text-base-700">·</span>
-            <button
-              onClick={() => onNavigate("feedback-admin")}
-              className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
-                current === "feedback-admin" ? "text-info-400" : "text-base-500 hover:text-base-300"
-              }`
-              }
-            >
-              <ClipboardList size={13} /> Admin
-            </button>
-          </div>
+        <button
+          onClick={onGiveFeedback}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 px-3 py-2.5 text-xs font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 hover:text-info-200"
+        >
+          <MessageSquare size={15} /> Send feedback
+        </button>
+        <div className="flex items-center justify-center">
+          <button
+            onClick={() => onNavigate("feedback-admin")}
+            className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
+              current === "feedback-admin" ? "text-info-400" : "text-base-500 hover:text-base-300"
+            }`}
+          >
+            <ClipboardList size={13} /> Admin feedback
+          </button>
         </div>
         {userEmail && (
           <div className="flex items-center justify-between gap-2 rounded-lg border border-base-800 bg-base-850 px-3 py-2">
