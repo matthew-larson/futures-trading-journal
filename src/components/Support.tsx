@@ -150,6 +150,9 @@ export function Support() {
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-base-500">
               <ShieldCheck size={14} className="text-bull-500" /> Secure payment handled by Stripe
             </div>
+            <p className="mt-2 text-center text-xs leading-relaxed text-base-600">
+              Contributions are voluntary donations to support development and are non-refundable.
+            </p>
           </div>
 
           <div className="rounded-xl border border-base-800 bg-base-850 p-5">
