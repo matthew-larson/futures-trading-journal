@@ -26,7 +26,7 @@ const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "discipline", label: "Discipline", icon: <ShieldCheck size={20} /> },
   { id: "import", label: "Import", icon: <Download size={20} /> },
   { id: "rules", label: "Rules", icon: <Ruler size={20} /> },
-  { id: "support", label: "Support development", icon: <Heart size={20} /> },
+  { id: "support", label: "Support Development", icon: <Heart size={20} /> },
 ];
 
 export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, onGiveFeedback, mobileOpen, onCloseMobile, userEmail, onSignOut }: SidebarProps) {
@@ -72,15 +72,6 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
         </p>
       </div>
 
-      <div className="mx-3 mt-3">
-        <button
-          onClick={onGiveFeedback}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 px-3 py-2.5 text-xs font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 hover:text-info-200"
-        >
-          <MessageSquare size={15} /> Send feedback
-        </button>
-      </div>
-
       <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-3">
         {navItems.map((item) => {
           const active = current === item.id;
@@ -101,6 +92,12 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
             </button>
           );
         })}
+        <button
+          onClick={onGiveFeedback}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-info-500/30 bg-info-500/10 px-3 py-2.5 text-xs font-semibold text-info-300 transition-all hover:border-info-400/50 hover:bg-info-500/15 hover:text-info-200"
+        >
+          <MessageSquare size={15} /> Send feedback
+        </button>
       </nav>
 
       {demoActive && (
