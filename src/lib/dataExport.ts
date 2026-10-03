@@ -41,14 +41,29 @@ export async function deleteAccount(): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
   if (!userId) throw new Error("Not authenticated");
 
-  const { error: storageError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .list("screenshots/");
-  const files = storageError ? [] : (storageError as unknown as { data?: { name: string }[] }).data ?? [];
-  if (files.length > 0) {
-    await supabase.storage
+  // Collect the caller's own screenshot paths from their trades (row level
+  // security already scopes this read to them) and delete the files first,
+  // while the rows that point at them still exist.
+  const { data: screenshotRows } = await supabase
+    .from("trades")
+    .select("screenshot_path")
+    .not("screenshot_path", "is", null);
+
+  const paths = Array.from(
+    new Set(
+      ((screenshotRows as { screenshot_path: string | null }[] | null) ?? [])
+        .map((row) => row.screenshot_path)
+        .filter((p): p is string => typeof p === "string" && p.length > 0)
+    )
+  );
+
+  for (let i = 0; i < paths.length; i += 100) {
+    const { error: removeError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .remove(files.map((f) => `screenshots/${f.name}`));
+      .remove(paths.slice(i, i + 100));
+    if (removeError) {
+      console.error("Failed to remove stored screenshots", removeError);
+    }
   }
 
   await supabase.from("coach_conversations").delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -57,6 +72,31 @@ export async function deleteAccount(): Promise<void> {
   await supabase.from("trader_profiles").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await supabase.from("trading_rules").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await supabase.from("trades").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+  // Remove the login itself. Only the service role can delete an auth user,
+  // so this runs server-side; the local session is cleared either way.
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (accessToken) {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+        }
+      );
+      if (!response.ok) {
+        console.error("Account removal request failed", response.status);
+      }
+    }
+  } catch (e) {
+    console.error("Account removal request failed", e);
+  }
 
   await supabase.auth.signOut();
 }

@@ -13,6 +13,43 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+/**
+ * The Origin header is attacker-controlled for any non-browser caller, and it
+ * becomes the page Stripe returns the payer to. Only accept origins this app
+ * is actually served from: an explicit ALLOWED_ORIGINS secret when set,
+ * otherwise local development and the known hosting domains.
+ */
+const allowedHostSuffixes = [
+  "localhost",
+  "127.0.0.1",
+  ".bolt.host",
+  ".bolt.new",
+  ".netlify.app",
+  ".webcontainer-api.io",
+  ".vercel.app",
+  ".pages.dev",
+];
+
+function isAllowedOrigin(url: URL): boolean {
+  const configured = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (configured.length > 0) {
+    return configured.some((o) => {
+      try {
+        return new URL(o).origin === url.origin;
+      } catch {
+        return false;
+      }
+    });
+  }
+  const host = url.hostname.toLowerCase();
+  return allowedHostSuffixes.some(
+    (suffix) => (suffix.startsWith(".") ? host.endsWith(suffix) : host === suffix)
+  );
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -44,11 +81,22 @@ Deno.serve(async (req: Request) => {
     if (typeof body !== "object" || body === null) return jsonResponse({ error: "Invalid request" }, 400);
 
     const amount = "amount" in body && typeof body.amount === "number" ? body.amount : NaN;
-    const originUrl = new URL(req.headers.get("origin") ?? "");
     if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
       return jsonResponse({ error: "Donation must be between $1 and $10,000" }, 400);
     }
-    if (!["http:", "https:"].includes(originUrl.protocol) || originUrl.username || originUrl.password) {
+
+    let originUrl: URL;
+    try {
+      originUrl = new URL(req.headers.get("origin") ?? "");
+    } catch {
+      return jsonResponse({ error: "Invalid checkout origin" }, 400);
+    }
+    if (
+      !["http:", "https:"].includes(originUrl.protocol) ||
+      originUrl.username ||
+      originUrl.password ||
+      !isAllowedOrigin(originUrl)
+    ) {
       return jsonResponse({ error: "Invalid checkout origin" }, 400);
     }
 

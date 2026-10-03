@@ -105,6 +105,33 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Durable per-account limit: this route forwards caller-supplied
+    // credentials to Tradovate, so without a cap one account could relay an
+    // unlimited number of login attempts to the broker through this backend.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (serviceKey) {
+      const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+      const { data: allowed, error: limitError } = await adminClient.rpc("claim_rate_limit_slot", {
+        p_user_id: authUser.user.id,
+        p_action: "tradovate_sync",
+        p_max: 20,
+        p_window_seconds: 3600,
+      });
+      if (limitError) {
+        console.error("Tradovate sync rate limit check failed", limitError);
+        return new Response(
+          JSON.stringify({ error: "Tradovate sync is unavailable right now. Please try again." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (allowed === false) {
+        return new Response(
+          JSON.stringify({ error: "Too many sync attempts. Please wait a while and try again." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const baseUrl = mode === "live"
       ? "https://live.tradovateapi.com/v1"
       : "https://demo.tradovateapi.com/v1";
