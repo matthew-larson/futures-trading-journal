@@ -80,7 +80,7 @@ export default function App() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [tradesRes, rulesRes] = await Promise.all([
+      let [tradesRes, rulesRes] = await Promise.all([
         supabase
           .from("trades")
           .select("*")
@@ -92,11 +92,33 @@ export default function App() {
       ]);
       if (tradesRes.error) throw tradesRes.error;
       if (rulesRes.error) throw rulesRes.error;
+
+      const loadedTrades = (tradesRes.data as Trade[]) ?? [];
+      const isDemoAccount = user.email?.endsWith("@demo.edgepilot.app") ?? false;
+      const hasLoadedDemoTrades = loadedTrades.some(
+        (trade) => trade.import_source === DEMO_IMPORT_SOURCE
+      );
+
+      if (isDemoAccount && !hasLoadedDemoTrades) {
+        await loadDemoData();
+        [tradesRes, rulesRes] = await Promise.all([
+          supabase
+            .from("trades")
+            .select("*")
+            .order("entry_time", { ascending: false }),
+          supabase
+            .from("trading_rules")
+            .select("*")
+            .order("created_at", { ascending: true }),
+        ]);
+        if (tradesRes.error) throw tradesRes.error;
+        if (rulesRes.error) throw rulesRes.error;
+      }
+
       setTrades((tradesRes.data as Trade[]) ?? []);
       setRules((rulesRes.data as TradingRule[]) ?? []);
-      // Check if demo data is present
       const demoCount = (tradesRes.data as Trade[])?.filter(
-        (t) => (t as any).import_source === DEMO_IMPORT_SOURCE
+        (trade) => trade.import_source === DEMO_IMPORT_SOURCE
       ).length ?? 0;
       setDemoActive(demoCount > 0);
     } catch (e) {

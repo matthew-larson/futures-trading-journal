@@ -33,6 +33,7 @@ export interface Trade {
   discipline_checks: DisciplineChecks;
   discipline_score: number | null;
   strategy_tags: string[] | null;
+  import_source?: string | null;
   ai_analysis: AiAnalysis | null;
   created_at: string;
   updated_at: string;
