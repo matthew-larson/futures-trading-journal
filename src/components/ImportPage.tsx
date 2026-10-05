@@ -34,8 +34,6 @@ interface ImportPageProps {
   onEdgeDiscovery?: (importedCount: number) => void;
   /** Whether demo data is currently loaded (for showing reset option). */
   demoActive: boolean;
-  /** Whether the current user is on a demo account (disables own-data import). */
-  isDemoAccount: boolean;
 }
 
 type PlatformId = ImportSource;
@@ -117,7 +115,7 @@ const initialProgress: ImportProgress = {
   errors: [],
 };
 
-export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive, isDemoAccount }: ImportPageProps) {
+export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive }: ImportPageProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformId | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
@@ -466,78 +464,43 @@ export function ImportPage({ onTradesChanged, onEdgeDiscovery, demoActive, isDem
             <div className="h-px flex-1 bg-base-800" />
           </div>
 
-          {isDemoAccount ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PLATFORMS.map((p) => (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {PLATFORMS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setSelectedPlatform(p.id);
+                  reset();
+                }}
+                className="group flex items-start gap-4 rounded-xl border border-base-700 bg-base-850 p-5 text-left transition-all hover:border-base-600 hover:bg-base-800"
+              >
                 <div
-                  key={p.id}
-                  className="group flex items-start gap-4 rounded-xl border border-base-700 bg-base-850/50 p-5 text-left opacity-50"
+                  className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${p.color} text-white shadow-lg`}
                 >
-                  <div
-                    className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${p.color} text-white shadow-lg grayscale`}
-                  >
-                    {p.icon}
+                  {p.icon}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-base-50">{p.name}</h3>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                        p.type === "api"
+                          ? "bg-blue-500/15 text-blue-400"
+                          : "bg-base-700 text-base-300"
+                      }`}
+                    >
+                      {p.id === "tradovate" ? "CSV + API" : p.type === "api" ? "Auto Sync" : "CSV Upload"}
+                    </span>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-base-50">{p.name}</h3>
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-base-700 text-base-300">
-                        {p.id === "tradovate" ? "CSV + API" : "CSV Upload"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-base-400">{p.description}</p>
+                  <p className="mt-1 text-xs text-base-400">{p.description}</p>
+                  <div className="mt-2 flex items-center gap-1 text-xs font-medium text-base-300 group-hover:text-base-100">
+                    Get started
+                    <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
-              ))}
-              <div className="sm:col-span-2 rounded-xl border border-base-700 bg-base-850 p-5 text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-base-800 text-base-400">
-                  <Upload size={20} />
-                </div>
-                <p className="text-sm text-base-300">
-                  Importing your own data requires a free account.{" "}
-                  <span className="text-base-400">Sign out of demo and create one to unlock these import options.</span>
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedPlatform(p.id);
-                    reset();
-                  }}
-                  className="group flex items-start gap-4 rounded-xl border border-base-700 bg-base-850 p-5 text-left transition-all hover:border-base-600 hover:bg-base-800"
-                >
-                  <div
-                    className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${p.color} text-white shadow-lg`}
-                  >
-                    {p.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-base-50">{p.name}</h3>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          p.type === "api"
-                            ? "bg-blue-500/15 text-blue-400"
-                            : "bg-base-700 text-base-300"
-                        }`}
-                      >
-                        {p.id === "tradovate" ? "CSV + API" : p.type === "api" ? "Auto Sync" : "CSV Upload"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-base-400">{p.description}</p>
-                    <div className="mt-2 flex items-center gap-1 text-xs font-medium text-base-300 group-hover:text-base-100">
-                      Get started
-                      <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

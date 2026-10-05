@@ -1,4 +1,4 @@
-import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut, Heart, Settings as SettingsIcon } from "lucide-react";
+import { LineChart, BookOpen, Ruler, BarChart3, TrendingUp, Brain, ShieldCheck, Crosshair, Download, Sparkles, CalendarClock, AlertTriangle, MessageSquare, ClipboardList, X, LogOut, Heart, Settings as SettingsIcon, Lock } from "lucide-react";
 
 export type Page = "dashboard" | "trades" | "rules" | "analytics" | "strategy" | "coach" | "discipline" | "import" | "edge" | "plan" | "support" | "feedback-admin" | "settings";
 
@@ -8,6 +8,7 @@ interface SidebarProps {
   netPnl: number;
   tradeCount: number;
   demoActive: boolean;
+  isDemoAccount: boolean;
   onGiveFeedback: () => void;
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -15,14 +16,16 @@ interface SidebarProps {
   onSignOut?: () => void;
 }
 
-const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
+const PREMIUM_PAGES: Set<Page> = new Set(["analytics", "strategy", "edge", "plan", "coach"]);
+
+const navItems: { id: Page; label: string; icon: React.ReactNode; premium?: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: <LineChart size={20} /> },
   { id: "trades", label: "Trades", icon: <BookOpen size={20} /> },
-  { id: "analytics", label: "Analytics", icon: <BarChart3 size={20} /> },
-  { id: "strategy", label: "Strategy", icon: <Crosshair size={20} /> },
-  { id: "edge", label: "Edge Discovery", icon: <Sparkles size={20} /> },
-  { id: "plan", label: "Tomorrow's Plan", icon: <CalendarClock size={20} /> },
-  { id: "coach", label: "AI Coach", icon: <Brain size={20} /> },
+  { id: "analytics", label: "Analytics", icon: <BarChart3 size={20} />, premium: true },
+  { id: "strategy", label: "Strategy", icon: <Crosshair size={20} />, premium: true },
+  { id: "edge", label: "Edge Discovery", icon: <Sparkles size={20} />, premium: true },
+  { id: "plan", label: "Tomorrow's Plan", icon: <CalendarClock size={20} />, premium: true },
+  { id: "coach", label: "AI Coach", icon: <Brain size={20} />, premium: true },
   { id: "discipline", label: "Discipline", icon: <ShieldCheck size={20} /> },
   { id: "import", label: "Import", icon: <Download size={20} /> },
   { id: "rules", label: "Rules", icon: <Ruler size={20} /> },
@@ -30,7 +33,7 @@ const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "settings", label: "Settings", icon: <SettingsIcon size={20} /> },
 ];
 
-export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, onGiveFeedback, mobileOpen, onCloseMobile, userEmail, onSignOut }: SidebarProps) {
+export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, isDemoAccount, onGiveFeedback, mobileOpen, onCloseMobile, userEmail, onSignOut }: SidebarProps) {
   const pnlPositive = netPnl > 0;
   return (
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 flex-col border-r border-base-800 bg-base-900 transition-transform duration-300 lg:static lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -86,6 +89,7 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
       <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-3">
         {navItems.map((item) => {
           const active = current === item.id;
+          const locked = isDemoAccount && item.premium === true;
           return (
             <button
               key={item.id}
@@ -96,10 +100,15 @@ export function Sidebar({ current, onNavigate, netPnl, tradeCount, demoActive, o
                     ? "bg-bull-500/10 text-bull-400 shadow-sm"
                     : "bg-base-800 text-base-50 shadow-sm"
                   : "text-base-400 hover:bg-base-800/60 hover:text-base-200"
-              }`}
+              } ${locked ? "opacity-60" : ""}`}
             >
               <span className={active ? (item.id === "support" ? "text-bull-400" : "text-info-400") : ""}>{item.icon}</span>
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {locked && (
+                <span className="flex items-center gap-1 rounded bg-warn-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warn-500">
+                  <Lock size={9} /> Pro
+                </span>
+              )}
             </button>
           );
         })}

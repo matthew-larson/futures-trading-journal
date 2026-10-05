@@ -27,6 +27,7 @@ import { Discipline as DisciplineComponent } from "@/components/Discipline";
 import { Modal } from "@/components/Modal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { PremiumLock } from "@/components/PremiumLock";
 import { FeedbackAdmin } from "@/components/FeedbackAdmin";
 import { Support } from "@/components/Support";
 import { Settings } from "@/components/Settings";
@@ -143,6 +144,8 @@ export default function App() {
   );
 
   const stats = useMemo(() => computeStats(trades), [trades]);
+  const isDemoAccount = user?.email?.endsWith("@demo.edgepilot.app") ?? false;
+  const premiumLocked = isDemoAccount && (page === "analytics" || page === "strategy" || page === "edge" || page === "plan" || page === "coach");
 
   // Trade CRUD
   const handleSaveTrade = async (input: TradeInput) => {
@@ -399,7 +402,7 @@ export default function App() {
         />
       )}
 
-      <Sidebar
+              <Sidebar
         current={page}
         onNavigate={(p) => {
           setPage(p);
@@ -410,6 +413,7 @@ export default function App() {
         netPnl={stats.netPnl}
         tradeCount={trades.length}
         demoActive={demoActive}
+        isDemoAccount={user.email?.endsWith("@demo.edgepilot.app") ?? false}
         onGiveFeedback={() => setFeedbackOpen(true)}
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
@@ -497,22 +501,39 @@ export default function App() {
                   onClearHighlight={() => setHighlightIds(null)}
                 />
               )}
-              {page === "analytics" && <Analytics trades={trades} rules={rules} onImportTrades={goToImport} />}
-              {page === "strategy" && <StrategyExplorer trades={trades} onImportTrades={goToImport} />}
+              {page === "analytics" && (premiumLocked ? (
+                <PremiumLock featureName="Analytics" description="Break down your performance by instrument, session, and rules to find what's working and what isn't." onSignOut={handleSignOut} />
+              ) : (
+                <Analytics trades={trades} rules={rules} onImportTrades={goToImport} />
+              ))}
+              {page === "strategy" && (premiumLocked ? (
+                <PremiumLock featureName="Strategy Explorer" description="Analyze performance by strategy tag, time of day, and day of week to identify your most profitable setups." onSignOut={handleSignOut} />
+              ) : (
+                <StrategyExplorer trades={trades} onImportTrades={goToImport} />
+              ))}
               {page === "import" && (
                 <ImportPage
                   onTradesChanged={loadData}
                   demoActive={demoActive}
-                  isDemoAccount={user.email?.endsWith("@demo.edgepilot.app") ?? false}
                   onEdgeDiscovery={() => {
                     persistDiscoveredPatterns(trades).catch(() => {});
                     setTimeout(() => setShowEdgeDiscovery(true), 400);
                   }}
                 />
               )}
-              {page === "edge" && <EdgeDiscovery trades={trades} onImportTrades={goToImport} />}
-              {page === "plan" && <TomorrowsPlan trades={trades} rules={rules} onImportTrades={goToImport} />}
-              {page === "coach" && (
+              {page === "edge" && (premiumLocked ? (
+                <PremiumLock featureName="Edge Discovery" description="Automatically discover your most profitable trading patterns and edges from your trade history." onSignOut={handleSignOut} />
+              ) : (
+                <EdgeDiscovery trades={trades} onImportTrades={goToImport} />
+              ))}
+              {page === "plan" && (premiumLocked ? (
+                <PremiumLock featureName="Tomorrow's Plan" description="Get a data-driven trading plan for the next session based on your historical performance." onSignOut={handleSignOut} />
+              ) : (
+                <TomorrowsPlan trades={trades} rules={rules} onImportTrades={goToImport} />
+              ))}
+              {page === "coach" && (premiumLocked ? (
+                <PremiumLock featureName="AI Coach" description="Ask questions and get personalized insights grounded in your real trade data with AI-powered coaching." onSignOut={handleSignOut} />
+              ) : (
                 <Coach
                   trades={trades}
                   rules={rules}
@@ -523,7 +544,7 @@ export default function App() {
                     setViewingTradeId(null);
                   }}
                 />
-              )}
+              ))}
               {page === "discipline" && <DisciplineComponent trades={trades} onImportTrades={goToImport} />}
               {page === "support" && <Support />}
               {page === "settings" && <Settings onBack={() => setPage("dashboard")} onSignedOut={signOut} />}
