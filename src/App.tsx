@@ -503,6 +503,7 @@ export default function App() {
                 <ImportPage
                   onTradesChanged={loadData}
                   demoActive={demoActive}
+                  isDemoAccount={user.email?.endsWith("@demo.edgepilot.app") ?? false}
                   onEdgeDiscovery={() => {
                     persistDiscoveredPatterns(trades).catch(() => {});
                     setTimeout(() => setShowEdgeDiscovery(true), 400);
