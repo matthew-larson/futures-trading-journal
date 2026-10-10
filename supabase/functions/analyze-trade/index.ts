@@ -55,11 +55,13 @@ async function createUserClient(req: Request) {
   const { data: authUser, error: authUserError } = await authClient.auth.getUser(token);
   if (authUserError || !authUser?.user) return null;
 
-  return createClient(
+  const client = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
+
+  return { client, userId: authUser.user.id };
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -456,11 +458,45 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Create a user-scoped client so RLS enforces ownership
-    const userClient = await createUserClient(req);
-    if (!userClient) {
+    const auth = await createUserClient(req);
+    if (!auth) {
       return new Response(
         JSON.stringify({ error: "Authentication required." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const userClient = auth.client;
+
+    // Per-user rate limit, claimed atomically and fail-closed: this endpoint
+    // spends money on an upstream model call, so a caller must not be able to
+    // run it in a loop.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceKey) {
+      return new Response(
+        JSON.stringify({ error: "Service temporarily unavailable." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const { data: slotAllowed, error: limitError } = await adminClient.rpc(
+      "claim_rate_limit_slot",
+      {
+        p_user_id: auth.userId,
+        p_action: "analyze_trade",
+        p_max: 60,
+        p_window_seconds: 3600,
+      }
+    );
+    if (limitError) {
+      return new Response(
+        JSON.stringify({ error: "Service temporarily unavailable." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (slotAllowed === false) {
+      return new Response(
+        JSON.stringify({ error: "Too many analysis requests. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

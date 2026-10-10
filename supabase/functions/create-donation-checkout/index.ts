@@ -17,37 +17,41 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
  * The Origin header is attacker-controlled for any non-browser caller, and it
  * becomes the page Stripe returns the payer to. Only accept origins this app
  * is actually served from: an explicit ALLOWED_ORIGINS secret when set,
- * otherwise local development and the known hosting domains.
+ * otherwise the production domain plus local development.
+ *
+ * This deliberately does NOT suffix-match shared hosting platforms such as
+ * netlify.app, vercel.app or pages.dev. Anyone can register a subdomain on
+ * those in minutes, so a suffix match would let an attacker obtain a genuine
+ * EdgePilot-branded Stripe session whose return URL lands on their own site.
+ * Preview deployments must be added to ALLOWED_ORIGINS explicitly.
  */
-const allowedHostSuffixes = [
-  "localhost",
-  "127.0.0.1",
-  ".bolt.host",
-  ".bolt.new",
-  ".netlify.app",
-  ".webcontainer-api.io",
-  ".vercel.app",
-  ".pages.dev",
+const defaultAllowedOrigins = [
+  "https://tradingedgepilot.com",
+  "https://www.tradingedgepilot.com",
 ];
+
+/** Local development only: loopback on any port. */
+function isLoopback(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
 
 function isAllowedOrigin(url: URL): boolean {
   const configured = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
-  if (configured.length > 0) {
-    return configured.some((o) => {
-      try {
-        return new URL(o).origin === url.origin;
-      } catch {
-        return false;
-      }
-    });
-  }
-  const host = url.hostname.toLowerCase();
-  return allowedHostSuffixes.some(
-    (suffix) => (suffix.startsWith(".") ? host.endsWith(suffix) : host === suffix)
-  );
+
+  const allowed = configured.length > 0 ? configured : defaultAllowedOrigins;
+  const matchesAllowlist = allowed.some((o) => {
+    try {
+      return new URL(o).origin === url.origin;
+    } catch {
+      return false;
+    }
+  });
+
+  return matchesAllowlist || isLoopback(url);
 }
 
 Deno.serve(async (req: Request) => {
